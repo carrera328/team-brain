@@ -111,102 +111,52 @@ const TOOLS = [
   },
 ];
 
-// --- Tool Execution ---
+// --- MCP Client ---
+// All tool calls go through the MCP server — single source of truth.
+
+const MCP_URL = "https://team-brain-mcp.carrera-328.workers.dev/mcp";
+
+const TOOL_NAME_MAP = {
+  save_to_brain: "tb_save_entry",
+  search_brain: "tb_search_entries",
+  get_brain_summary: "tb_dashboard",
+};
+
+async function callMcp(toolName, args) {
+  const response = await fetch(MCP_URL, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Accept: "application/json, text/event-stream",
+    },
+    body: JSON.stringify({
+      jsonrpc: "2.0",
+      id: 1,
+      method: "tools/call",
+      params: { name: toolName, arguments: args },
+    }),
+  });
+
+  const result = await response.json();
+  if (result.result?.content?.[0]?.text) {
+    return result.result.content[0].text;
+  }
+  return JSON.stringify(result.result || result.error || { error: "MCP call failed" });
+}
 
 async function executeTool(name, input, env, userName) {
-  switch (name) {
-    case "save_to_brain":
-      return await saveEntry(input, env, userName);
-    case "search_brain":
-      return await searchEntries(input, env);
-    case "get_brain_summary":
-      return await getBrainSummary(env);
-    default:
-      return JSON.stringify({ error: `Unknown tool: ${name}` });
-  }
-}
-
-async function saveEntry({ title, content, category, tags }, env, userName) {
-  const ts = new Date().toISOString();
-  await env.DB.prepare(
-    "INSERT INTO entries (title, content, category, author, tags, created_at, updated_at) VALUES (?,?,?,?,?,?,?)"
-  )
-    .bind(
-      title,
-      content,
-      category || "note",
-      userName || null,
-      JSON.stringify(tags || []),
-      ts,
-      ts
-    )
-    .run();
-
-  return JSON.stringify({ success: true, title, category, author: userName || null });
-}
-
-async function searchEntries({ query, category }, env) {
-  const conditions = [];
-  const params = [];
-
-  if (query) {
-    conditions.push("(title LIKE ? OR content LIKE ?)");
-    const q = `%${query}%`;
-    params.push(q, q);
-  }
-  if (category) {
-    conditions.push("category = ?");
-    params.push(category);
+  const mcpName = TOOL_NAME_MAP[name];
+  if (!mcpName) {
+    return JSON.stringify({ error: `Unknown tool: ${name}` });
   }
 
-  const where = conditions.length > 0 ? conditions.join(" AND ") : "1=1";
-  const stmt = env.DB.prepare(
-    `SELECT id, title, content, category, tags, author, created_at FROM entries WHERE ${where} ORDER BY updated_at DESC LIMIT 20`
-  );
-  const { results: rows } =
-    params.length > 0 ? await stmt.bind(...params).all() : await stmt.all();
-
-  if (rows.length === 0) {
-    return JSON.stringify({ results: [], message: "No entries found." });
+  // Inject author for save operations
+  const args = { ...input };
+  if (name === "save_to_brain" && userName) {
+    args.author = userName;
   }
 
-  const results = rows.map((r) => ({
-    id: r.id,
-    title: r.title,
-    content:
-      r.content.length > 300 ? r.content.substring(0, 300) + "..." : r.content,
-    category: r.category,
-    tags: JSON.parse(r.tags || "[]"),
-    author: r.author,
-    created_at: r.created_at,
-  }));
-
-  return JSON.stringify({ results, total: results.length });
-}
-
-async function getBrainSummary(env) {
-  const [totalCount, categoryCounts, recentEntries] = await env.DB.batch([
-    env.DB.prepare("SELECT COUNT(*) as c FROM entries"),
-    env.DB.prepare(
-      "SELECT category, COUNT(*) as c FROM entries GROUP BY category ORDER BY c DESC"
-    ),
-    env.DB.prepare(
-      "SELECT title, category, author, created_at FROM entries ORDER BY created_at DESC LIMIT 10"
-    ),
-  ]);
-
-  return JSON.stringify({
-    total_entries: totalCount.results[0]?.c ?? 0,
-    by_category: Object.fromEntries(
-      categoryCounts.results.map((r) => [r.category, r.c])
-    ),
-    recent: recentEntries.results.map((r) => ({
-      title: r.title,
-      category: r.category,
-      author: r.author,
-      created: r.created_at,
-    })),
-  });
+  return await callMcp(mcpName, args);
 }
 
 // --- Rate Limiting ---
