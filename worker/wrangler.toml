@@ -1,0 +1,11 @@
+name = "team-brain-chat"
+main = "worker.js"
+compatibility_date = "2024-12-01"
+
+[[d1_databases]]
+binding = "DB"
+database_name = "team-brain-db"
+database_id = "825f8e21-2f35-451a-95cc-fdfa1943bd6d"
+
+# Secrets (set via: npx wrangler secret put ANTHROPIC_API_KEY)
+# ANTHROPIC_API_KEY — your Claude API key
