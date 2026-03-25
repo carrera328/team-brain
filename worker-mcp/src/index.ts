@@ -3,23 +3,72 @@ import { WebStandardStreamableHTTPServerTransport } from "@modelcontextprotocol/
 import { registerDashboardTool } from "./tools/dashboard";
 import { registerNoteTools } from "./tools/notes";
 import { registerUserTools } from "./tools/users";
+import { registerJiraTools } from "./tools/jira";
+import { registerConfluenceTools } from "./tools/confluence";
+import { registerSalesforceTools } from "./tools/salesforce";
+import { registerGitHubTools } from "./tools/github";
 
 export interface Env {
   DB: D1Database;
+  JIRA_BASE_URL: string;
+  JIRA_EMAIL: string;
+  JIRA_API_TOKEN: string;
+  CONFLUENCE_API_TOKEN: string;
+  SF_INSTANCE_URL: string;
+  SF_CLIENT_ID: string;
+  SF_CLIENT_SECRET: string;
+  GITHUB_TOKEN: string;
+  GITHUB_REPO: string;
 }
 
 // ---------------------------------------------------------------------------
 // Server factory
 // ---------------------------------------------------------------------------
 
-function createServer(db: D1Database): McpServer {
+function createServer(env: Env): McpServer {
   const server = new McpServer({
     name: "team-brain-mcp-server",
     version: "1.0.0",
   });
-  registerDashboardTool(server, db);
-  registerNoteTools(server, db);
-  registerUserTools(server, db);
+  registerDashboardTool(server, env.DB);
+  registerNoteTools(server, env.DB);
+  registerUserTools(server, env.DB);
+
+  // Jira integration
+  if (env.JIRA_API_TOKEN) {
+    registerJiraTools(server, {
+      baseUrl: env.JIRA_BASE_URL || "https://discoveryacdc.atlassian.net",
+      email: env.JIRA_EMAIL || "venkivenki8697@gmail.com",
+      apiToken: env.JIRA_API_TOKEN,
+    });
+  }
+
+  // Confluence integration
+  if (env.CONFLUENCE_API_TOKEN) {
+    registerConfluenceTools(server, {
+      baseUrl: env.JIRA_BASE_URL || "https://discoveryacdc.atlassian.net",
+      email: env.JIRA_EMAIL || "venkivenki8697@gmail.com",
+      apiToken: env.CONFLUENCE_API_TOKEN,
+    });
+  }
+
+  // GitHub integration
+  if (env.GITHUB_TOKEN) {
+    registerGitHubTools(server, {
+      token: env.GITHUB_TOKEN,
+      defaultRepo: env.GITHUB_REPO || "gmarkay/team-brain-sfdc",
+    });
+  }
+
+  // Salesforce integration
+  if (env.SF_CLIENT_ID) {
+    registerSalesforceTools(server, {
+      instanceUrl: env.SF_INSTANCE_URL || "orgfarm-9f4a8cd667-dev-ed.develop.my.salesforce.com",
+      clientId: env.SF_CLIENT_ID,
+      clientSecret: env.SF_CLIENT_SECRET,
+    });
+  }
+
   return server;
 }
 
@@ -61,7 +110,7 @@ export default {
     }
 
     // Create MCP server & handle request (stateless)
-    const server = createServer(env.DB);
+    const server = createServer(env);
     const transport = new WebStandardStreamableHTTPServerTransport({
       sessionIdGenerator: undefined,
       enableJsonResponse: true,

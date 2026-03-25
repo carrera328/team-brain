@@ -15,6 +15,28 @@ Your capabilities:
 - Search the shared brain for existing knowledge
 - Update existing entries with new status or follow-up context
 - Provide a summary/dashboard of everything stored
+- Search Jira for tickets, bugs, stories, and sprint status
+- Get details on specific Jira issues
+- View the current sprint and what the team is working on
+- Add comments to Jira issues
+- Search Confluence for documentation, runbooks, and processes
+- Read full Confluence pages
+- List Confluence spaces
+- Create new Confluence pages
+- Search Salesforce for accounts, contacts, opportunities, leads, and cases
+- Query Salesforce with SOQL
+- Create new Salesforce records
+
+IMPORTANT — Salesforce context:
+You are connected to our team's Salesforce org (orgfarm-9f4a8cd667-dev-ed.develop.my.salesforce.com). When anyone mentions "Salesforce", "CRM", "accounts", "opportunities", "leads", "contacts", or "deals" — they are referring to THIS org. You have full read/write access including the Tooling API. Don't ask if they want you to check — just do it.
+- Use sf_search for name lookups, sf_query for structured SOQL queries
+- Use sf_create_lwc to create Lightning Web Components and deploy them to the org
+- Use sf_create_apex to create Apex classes
+- Use sf_describe_metadata to see what's deployed (Apex, LWCs, triggers, objects, flows)
+- Use sf_tooling_query for advanced metadata queries
+
+IMPORTANT — GitHub context:
+You are connected to the gmarkay/team-brain-sfdc GitHub repo. When anyone asks about PRs, commits, issues, code, or the repo — use the GitHub tools. Don't ask, just search.
 
 CRITICAL BEHAVIOR — Search-first approach:
 - When someone mentions ANYTHING that might relate to existing brain content, ALWAYS search_brain FIRST.
@@ -155,6 +177,462 @@ const TOOLS = [
       required: ["id"],
     },
   },
+  {
+    name: "jira_search",
+    description:
+      "Search Jira issues using JQL or plain text. Use this when someone asks about tickets, bugs, stories, tasks, sprint status, or anything work-tracking related.",
+    input_schema: {
+      type: "object",
+      properties: {
+        query: {
+          type: "string",
+          description:
+            'JQL query or plain text. Examples: "status = Done", "sprint in openSprints()", or just "login bug"',
+        },
+        maxResults: {
+          type: "number",
+          description: "Max results (default 10)",
+        },
+      },
+      required: ["query"],
+    },
+  },
+  {
+    name: "jira_get_issue",
+    description:
+      "Get full details for a specific Jira issue by key (e.g. SCRUM-42). Use when someone asks about a specific ticket.",
+    input_schema: {
+      type: "object",
+      properties: {
+        issueKey: {
+          type: "string",
+          description: 'The Jira issue key, e.g. "SCRUM-42"',
+        },
+      },
+      required: ["issueKey"],
+    },
+  },
+  {
+    name: "jira_current_sprint",
+    description:
+      "Get all issues in the current active sprint. Use when someone asks what the team is working on, sprint status, or current work.",
+    input_schema: {
+      type: "object",
+      properties: {
+        boardId: {
+          type: "number",
+          description: "Jira board ID (default 1)",
+        },
+      },
+    },
+  },
+  {
+    name: "jira_add_comment",
+    description:
+      "Add a comment to a Jira issue. Use when someone wants to log an update or note on a ticket.",
+    input_schema: {
+      type: "object",
+      properties: {
+        issueKey: {
+          type: "string",
+          description: 'The Jira issue key, e.g. "SCRUM-42"',
+        },
+        comment: {
+          type: "string",
+          description: "The comment text to add",
+        },
+      },
+      required: ["issueKey", "comment"],
+    },
+  },
+  {
+    name: "confluence_search",
+    description:
+      "Search Confluence pages and documentation. Use when someone asks about docs, runbooks, processes, architecture, onboarding, or any team documentation.",
+    input_schema: {
+      type: "object",
+      properties: {
+        query: {
+          type: "string",
+          description: "Search term — matches page titles and content",
+        },
+        maxResults: {
+          type: "number",
+          description: "Max results (default 10)",
+        },
+      },
+      required: ["query"],
+    },
+  },
+  {
+    name: "confluence_get_page",
+    description:
+      "Get the full content of a specific Confluence page by ID. Use after searching to read the full page.",
+    input_schema: {
+      type: "object",
+      properties: {
+        pageId: {
+          type: "string",
+          description: "The Confluence page ID (from search results)",
+        },
+      },
+      required: ["pageId"],
+    },
+  },
+  {
+    name: "confluence_list_spaces",
+    description:
+      "List all Confluence spaces. Use to see what documentation areas exist.",
+    input_schema: {
+      type: "object",
+      properties: {},
+    },
+  },
+  {
+    name: "confluence_create_page",
+    description:
+      "Create a new page in Confluence. Use when someone wants to write documentation, create a runbook, or publish team knowledge.",
+    input_schema: {
+      type: "object",
+      properties: {
+        title: {
+          type: "string",
+          description: "Page title",
+        },
+        content: {
+          type: "string",
+          description: "Page content in plain text. Supports markdown-style headers (# ## ###) and bullet lists (- or *).",
+        },
+        spaceKey: {
+          type: "string",
+          description: 'Confluence space key (default "SD")',
+        },
+      },
+      required: ["title", "content"],
+    },
+  },
+  {
+    name: "sf_query",
+    description:
+      "Run a SOQL query against Salesforce. Use for accounts, contacts, opportunities, cases, leads.",
+    input_schema: {
+      type: "object",
+      properties: {
+        soql: {
+          type: "string",
+          description: 'SOQL query, e.g. "SELECT Name, Industry FROM Account LIMIT 10"',
+        },
+      },
+      required: ["soql"],
+    },
+  },
+  {
+    name: "sf_search",
+    description:
+      "Fuzzy text search across Salesforce. Use when someone asks about a customer, deal, or contact by name.",
+    input_schema: {
+      type: "object",
+      properties: {
+        query: {
+          type: "string",
+          description: "Search term — name, company, email, etc.",
+        },
+      },
+      required: ["query"],
+    },
+  },
+  {
+    name: "sf_get_record",
+    description:
+      "Get full details of a specific Salesforce record by object type and ID.",
+    input_schema: {
+      type: "object",
+      properties: {
+        objectType: {
+          type: "string",
+          description: 'e.g. "Account", "Contact", "Opportunity"',
+        },
+        recordId: {
+          type: "string",
+          description: "The Salesforce record ID",
+        },
+      },
+      required: ["objectType", "recordId"],
+    },
+  },
+  {
+    name: "sf_create_record",
+    description:
+      "Create a new record in Salesforce (Account, Contact, Opportunity, Lead, Case, etc).",
+    input_schema: {
+      type: "object",
+      properties: {
+        objectType: {
+          type: "string",
+          description: 'e.g. "Account", "Contact", "Lead"',
+        },
+        fields: {
+          type: "object",
+          description: 'Field values, e.g. {"Name": "Acme Corp", "Industry": "Technology"}',
+        },
+      },
+      required: ["objectType", "fields"],
+    },
+  },
+  {
+    name: "github_search_issues",
+    description: "Search issues and PRs in the team-brain-sfdc GitHub repo.",
+    input_schema: {
+      type: "object",
+      properties: {
+        query: { type: "string", description: "Search term" },
+        state: { type: "string", enum: ["open", "closed", "all"], description: "Filter by state" },
+      },
+      required: ["query"],
+    },
+  },
+  {
+    name: "github_get_issue",
+    description: "Get full details for a specific issue or PR by number.",
+    input_schema: {
+      type: "object",
+      properties: {
+        number: { type: "number", description: "Issue or PR number" },
+      },
+      required: ["number"],
+    },
+  },
+  {
+    name: "github_create_issue",
+    description: "Create a new GitHub issue — for bugs, features, or tasks.",
+    input_schema: {
+      type: "object",
+      properties: {
+        title: { type: "string", description: "Issue title" },
+        body: { type: "string", description: "Issue body (markdown)" },
+        labels: { type: "array", items: { type: "string" }, description: "Labels" },
+        assignees: { type: "array", items: { type: "string" }, description: "GitHub usernames" },
+      },
+      required: ["title"],
+    },
+  },
+  {
+    name: "github_list_prs",
+    description: "List pull requests in the GitHub repo.",
+    input_schema: {
+      type: "object",
+      properties: {
+        state: { type: "string", enum: ["open", "closed", "all"], description: "PR state" },
+      },
+    },
+  },
+  {
+    name: "github_list_commits",
+    description: "List recent commits in the GitHub repo.",
+    input_schema: {
+      type: "object",
+      properties: {
+        branch: { type: "string", description: "Branch name (default: main)" },
+        limit: { type: "number", description: "Max commits (default 10)" },
+      },
+    },
+  },
+  {
+    name: "github_get_file",
+    description: "Read a file from the GitHub repo.",
+    input_schema: {
+      type: "object",
+      properties: {
+        path: { type: "string", description: "File path, e.g. 'README.md'" },
+        branch: { type: "string", description: "Branch (default: main)" },
+      },
+      required: ["path"],
+    },
+  },
+  {
+    name: "sf_tooling_query",
+    description:
+      "Query Salesforce Tooling API for metadata — Apex classes, LWCs, triggers, custom objects, etc.",
+    input_schema: {
+      type: "object",
+      properties: {
+        soql: {
+          type: "string",
+          description: 'Tooling SOQL, e.g. "SELECT Id, Name FROM ApexClass LIMIT 10"',
+        },
+      },
+      required: ["soql"],
+    },
+  },
+  {
+    name: "sf_create_apex",
+    description:
+      "Create an Apex class in the Salesforce org.",
+    input_schema: {
+      type: "object",
+      properties: {
+        name: { type: "string", description: "Class name" },
+        body: { type: "string", description: "Full Apex class body" },
+      },
+      required: ["name", "body"],
+    },
+  },
+  {
+    name: "sf_create_lwc",
+    description:
+      "Create and deploy a Lightning Web Component to the Salesforce org. Provide name, HTML template, JS controller, and optional XML metadata.",
+    input_schema: {
+      type: "object",
+      properties: {
+        name: { type: "string", description: "Component name in camelCase" },
+        html: { type: "string", description: "HTML template content" },
+        js: { type: "string", description: "JavaScript controller (full ES module)" },
+        xml: { type: "string", description: "Optional XML metadata" },
+        description: { type: "string", description: "Component description" },
+      },
+      required: ["name", "html", "js"],
+    },
+  },
+  {
+    name: "sf_execute_anonymous",
+    description: "Run anonymous Apex code in the Salesforce org. Use for scripts, data fixes, testing logic, bulk operations, or any on-the-fly Apex execution.",
+    input_schema: {
+      type: "object",
+      properties: {
+        code: { type: "string", description: "Apex code to execute" },
+      },
+      required: ["code"],
+    },
+  },
+  {
+    name: "sf_describe_metadata",
+    description:
+      "List metadata in the Salesforce org — Apex classes, LWCs, triggers, custom objects, pages, flows.",
+    input_schema: {
+      type: "object",
+      properties: {
+        metadataType: {
+          type: "string",
+          enum: ["ApexClass", "ApexTrigger", "LightningComponentBundle", "CustomObject", "FlexiPage", "Flow"],
+          description: "Metadata type to list",
+        },
+        limit: { type: "number", description: "Max results (default 20)" },
+      },
+      required: ["metadataType"],
+    },
+  },
+  {
+    name: "sf_tooling_create",
+    description: "Create ANY metadata via Tooling API — CustomObject, CustomField, FlexiPage, ValidationRule, ApexTrigger, StaticResource, etc.",
+    input_schema: {
+      type: "object",
+      properties: {
+        toolingType: { type: "string", description: "Tooling API sObject type" },
+        fields: { type: "object", description: "Field values" },
+      },
+      required: ["toolingType", "fields"],
+    },
+  },
+  {
+    name: "sf_tooling_update",
+    description: "Update any existing metadata component via Tooling API.",
+    input_schema: {
+      type: "object",
+      properties: {
+        toolingType: { type: "string", description: "Tooling sObject type" },
+        recordId: { type: "string", description: "Record ID" },
+        fields: { type: "object", description: "Fields to update" },
+      },
+      required: ["toolingType", "recordId", "fields"],
+    },
+  },
+  {
+    name: "sf_tooling_delete",
+    description: "Delete a metadata component via Tooling API.",
+    input_schema: {
+      type: "object",
+      properties: {
+        toolingType: { type: "string", description: "Tooling sObject type" },
+        recordId: { type: "string", description: "Record ID to delete" },
+      },
+      required: ["toolingType", "recordId"],
+    },
+  },
+  {
+    name: "sf_create_custom_object",
+    description: "Create a custom object in Salesforce with Name field.",
+    input_schema: {
+      type: "object",
+      properties: {
+        objectName: { type: "string", description: "Object name without __c" },
+        label: { type: "string", description: "Display label" },
+        pluralLabel: { type: "string", description: "Plural label" },
+        description: { type: "string" },
+        nameFieldType: { type: "string", enum: ["Text", "AutoNumber"] },
+        nameFieldLabel: { type: "string" },
+      },
+      required: ["objectName", "label", "pluralLabel"],
+    },
+  },
+  {
+    name: "sf_create_custom_field",
+    description: "Add a custom field to any object. Supports Text, Number, Currency, Date, Checkbox, Picklist, Lookup, and more.",
+    input_schema: {
+      type: "object",
+      properties: {
+        objectName: { type: "string", description: "Object API name" },
+        fieldName: { type: "string", description: "Field name without __c" },
+        label: { type: "string", description: "Field label" },
+        type: { type: "string", description: "Text, Number, Currency, Date, DateTime, Checkbox, Picklist, LongTextArea, Email, Phone, Url, Lookup, Percent" },
+        length: { type: "number" },
+        precision: { type: "number" },
+        scale: { type: "number" },
+        picklistValues: { type: "array", items: { type: "string" } },
+        referenceTo: { type: "string", description: "For Lookup — target object" },
+        required: { type: "boolean" },
+        description: { type: "string" },
+      },
+      required: ["objectName", "fieldName", "label", "type"],
+    },
+  },
+  {
+    name: "sf_describe_object",
+    description: "Get the full schema of any Salesforce object — fields, types, relationships, picklist values.",
+    input_schema: {
+      type: "object",
+      properties: {
+        objectName: { type: "string", description: "Object API name" },
+      },
+      required: ["objectName"],
+    },
+  },
+  {
+    name: "sf_metadata_read",
+    description: "Read metadata components — Layouts, FlexiPages, Profiles, PermissionSets, etc.",
+    input_schema: {
+      type: "object",
+      properties: {
+        metadataType: { type: "string", description: "Metadata type" },
+        fullNames: { type: "array", items: { type: "string" }, description: "Full names to read" },
+      },
+      required: ["metadataType", "fullNames"],
+    },
+  },
+  {
+    name: "sf_create_validation_rule",
+    description: "Create a validation rule on a Salesforce object.",
+    input_schema: {
+      type: "object",
+      properties: {
+        objectName: { type: "string", description: "Object API name" },
+        ruleName: { type: "string", description: "Rule API name" },
+        errorConditionFormula: { type: "string", description: "Formula (TRUE = error)" },
+        errorMessage: { type: "string", description: "Error message" },
+        active: { type: "boolean" },
+      },
+      required: ["objectName", "ruleName", "errorConditionFormula", "errorMessage"],
+    },
+  },
 ];
 
 // --- MCP Client ---
@@ -165,6 +643,37 @@ const TOOL_NAME_MAP = {
   search_brain: "tb_search_entries",
   get_brain_summary: "tb_dashboard",
   update_brain_entry: "tb_update_entry",
+  jira_search: "jira_search",
+  jira_get_issue: "jira_get_issue",
+  jira_current_sprint: "jira_current_sprint",
+  jira_add_comment: "jira_add_comment",
+  confluence_search: "confluence_search",
+  confluence_get_page: "confluence_get_page",
+  confluence_list_spaces: "confluence_list_spaces",
+  confluence_create_page: "confluence_create_page",
+  sf_query: "sf_query",
+  sf_search: "sf_search",
+  sf_get_record: "sf_get_record",
+  sf_create_record: "sf_create_record",
+  github_search_issues: "github_search_issues",
+  github_get_issue: "github_get_issue",
+  github_create_issue: "github_create_issue",
+  github_list_prs: "github_list_prs",
+  github_list_commits: "github_list_commits",
+  github_get_file: "github_get_file",
+  sf_tooling_query: "sf_tooling_query",
+  sf_create_apex: "sf_create_apex",
+  sf_create_lwc: "sf_create_lwc",
+  sf_execute_anonymous: "sf_execute_anonymous",
+  sf_describe_metadata: "sf_describe_metadata",
+  sf_tooling_create: "sf_tooling_create",
+  sf_tooling_update: "sf_tooling_update",
+  sf_tooling_delete: "sf_tooling_delete",
+  sf_create_custom_object: "sf_create_custom_object",
+  sf_create_custom_field: "sf_create_custom_field",
+  sf_describe_object: "sf_describe_object",
+  sf_metadata_read: "sf_metadata_read",
+  sf_create_validation_rule: "sf_create_validation_rule",
 };
 
 async function callMcp(toolName, args, env) {
@@ -311,9 +820,24 @@ async function streamWithToolUse(
   if (!response.ok) {
     const errText = await response.text();
     console.error("Anthropic API error:", response.status, errText);
+    let userMessage = "I ran into an issue processing that request.";
+    if (response.status === 429) {
+      userMessage = "I'm getting too many requests right now — give me a moment and try again.";
+    } else if (response.status === 413 || errText.includes("too many tokens")) {
+      userMessage = "That request was too large for me to process. Try asking something more specific or starting a new conversation.";
+    } else if (response.status === 401) {
+      userMessage = "There's an authentication issue with the AI service. Let the team know so they can check the API key.";
+    } else if (response.status === 400) {
+      userMessage = "I had trouble understanding that request. Could you rephrase it or be more specific about what you're looking for?";
+    } else if (response.status === 500 || response.status === 502 || response.status === 503) {
+      userMessage = "The AI service is having issues right now. Try again in a few seconds.";
+    } else {
+      userMessage = `Something went wrong (error ${response.status}). Could you try rephrasing your question?`;
+    }
+    console.error("Sending user-friendly error:", userMessage);
     await writer.write(
       encoder.encode(
-        `data: ${JSON.stringify({ type: "error", message: "AI service temporarily unavailable" })}\n\n`
+        `data: ${JSON.stringify({ type: "error", message: userMessage })}\n\n`
       )
     );
     return;
@@ -504,10 +1028,15 @@ export default {
           await writer.close();
         } catch (e) {
           console.error("Stream error:", e);
+          const errMsg = e?.message || String(e);
+          let userMessage = "Something unexpected happened. Could you try again or rephrase your question?";
+          if (errMsg.includes("tool") || errMsg.includes("MCP")) {
+            userMessage = `I had trouble using one of my tools: ${errMsg}. Could you try rephrasing what you need?`;
+          }
           try {
             await writer.write(
               encoder.encode(
-                `data: ${JSON.stringify({ type: "error", message: "Something went wrong" })}\n\n`
+                `data: ${JSON.stringify({ type: "error", message: userMessage })}\n\n`
               )
             );
             await writer.close();
