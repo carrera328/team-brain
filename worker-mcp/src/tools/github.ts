@@ -101,7 +101,13 @@ export function registerGitHubTools(server: McpServer, config: GitHubConfig) {
 
         // If it's a PR, get extra details
         if (issue.pull_request) {
-          const pr = await ghFetch(config, `/repos/${repo}/pulls/${number}`);
+          //const pr = await ghFetch(config, `/repos/${repo}/pulls/${number}`);
+          const [pr, reviews, files] = await Promise.all([
+            ghFetch(config, `/repos/${repo}/pulls/${number}`),
+            ghFetch(config, `/repos/${repo}/pulls/${number}/reviews`),
+            ghFetch(config, `/repos/${repo}/pulls/${number}/files`),
+          ]);
+          
           result.mergeable = pr.mergeable;
           result.merged = pr.merged;
           result.base = pr.base?.ref;
@@ -109,8 +115,29 @@ export function registerGitHubTools(server: McpServer, config: GitHubConfig) {
           result.additions = pr.additions;
           result.deletions = pr.deletions;
           result.changed_files = pr.changed_files;
-        }
-
+          
+          // Requested reviewers 
+          result.requested_reviewers = pr.requested_reviewers?.map((r: any) => r.login);
+         // Review status — latest decision per reviewer
+          const latestByUser = Object.values(
+            reviews.reduce((acc: any, r: any) => {
+              acc[r.user?.login] = r;
+              return acc;
+            }, {})
+          );
+          result.reviews = latestByUser.map((r: any) => ({
+            user: r.user?.login,
+            state: r.state,           // APPROVED | CHANGES_REQUESTED | COMMENTED | DISMISSED
+            submitted_at: r.submitted_at,
+          }));
+          // Changes
+          result.file_changes = files.map((f: any) => ({
+            filename: f.filename,
+            status: f.status,   
+            additions: f.additions,
+            deletions: f.deletions,
+          }));
+      }
         return { content: [{ type: "text" as const, text: JSON.stringify(result, null, 2) }] };
       } catch (e: any) {
         return { content: [{ type: "text" as const, text: `GitHub error: ${e.message}` }] };
