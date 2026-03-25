@@ -1,0 +1,34 @@
+name: Deploy to Cloudflare
+
+on:
+  push:
+    branches: [master]
+
+jobs:
+  deploy-chat-worker:
+    name: Deploy Chat Worker
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Deploy Chat Worker
+        uses: cloudflare/wrangler-action@v3
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          workingDirectory: worker
+
+  deploy-mcp-worker:
+    name: Deploy MCP Server
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install dependencies
+        run: npm install
+        working-directory: worker-mcp
+
+      - name: Deploy MCP Server
+        uses: cloudflare/wrangler-action@v3
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          workingDirectory: worker-mcp

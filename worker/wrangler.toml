@@ -2,7 +2,10 @@ name = "team-brain-chat"
 main = "worker.js"
 compatibility_date = "2024-12-01"
 
-# No D1 binding needed — all data goes through the MCP server
+# Service binding to call MCP worker directly (avoids Worker-to-Worker 404)
+[[services]]
+binding = "MCP"
+service = "team-brain-mcp"
 
 # Secrets (set via: npx wrangler secret put ANTHROPIC_API_KEY)
 # ANTHROPIC_API_KEY — your Claude API key

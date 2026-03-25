@@ -13,16 +13,27 @@ const SYSTEM_PROMPT = `You are the Shared Brain assistant for an innovation week
 Your capabilities:
 - Save notes, ideas, decisions, action items, learnings, and resources to the team's shared brain
 - Search the shared brain for existing knowledge
+- Update existing entries with new status or follow-up context
 - Provide a summary/dashboard of everything stored
 
-Behavior:
-- When someone shares an idea, decision, or important information, proactively offer to save it to the shared brain using the save_to_brain tool.
-- When someone asks a question that might be answered by existing knowledge, search the brain first using search_brain.
-- When asked what's in the brain or for an overview, use get_brain_summary.
+CRITICAL BEHAVIOR — Search-first approach:
+- When someone mentions ANYTHING that might relate to existing brain content, ALWAYS search_brain FIRST.
+- If they say "I finished X" or "X is done" → search for X, find the entry, then update_brain_entry to set status to "done" and append a completion note.
+- If they say "X is blocked" or "stuck on X" → search, find it, update status to "blocked" with context.
+- If they ask "what's the status of X" → search and report what you find including status.
+- Only create a NEW entry (save_to_brain) if search finds nothing related.
+
+Status workflow:
+- Entries have a status: open, in-progress, done, blocked, cancelled
+- When updating, always use update_brain_entry with the entry ID from search results
+- Append context about what changed (who did it, when, what's next)
+
+General behavior:
 - Be helpful, concise, and collaborative. You're a team member, not just a tool.
 - Keep responses SHORT — 2-3 sentences unless more detail is needed.
 - When you save something, confirm what you saved and the category.
 - When you search, summarize the findings conversationally.
+- When you update something, confirm what changed.
 
 About this system:
 - This is a demo of MCP (Model Context Protocol) — an open standard that lets AI systems connect to external tools and data.
@@ -33,7 +44,8 @@ About this system:
 Do NOT:
 - Give long-winded explanations unless asked
 - Repeat the user's question back to them
-- Be overly formal — this is a team collaboration tool`;
+- Be overly formal — this is a team collaboration tool
+- Create new entries when you should be updating existing ones`;
 
 // --- Tool Definitions ---
 
@@ -109,39 +121,84 @@ const TOOLS = [
       properties: {},
     },
   },
+  {
+    name: "update_brain_entry",
+    description:
+      "Update an existing brain entry. Use this to change status (open/in-progress/done/blocked/cancelled), append follow-up notes, or recategorize. ALWAYS search_brain first to find the entry ID before updating.",
+    input_schema: {
+      type: "object",
+      properties: {
+        id: {
+          type: "number",
+          description: "The entry ID to update (get this from search_brain results)",
+        },
+        status: {
+          type: "string",
+          enum: ["open", "in-progress", "done", "blocked", "cancelled"],
+          description: "Update the status of this entry",
+        },
+        append_content: {
+          type: "string",
+          description: "Text to append as a follow-up (e.g. status update, additional context)",
+        },
+        category: {
+          type: "string",
+          enum: ["idea", "decision", "note", "action-item", "learning", "resource"],
+          description: "Change the category",
+        },
+        tags: {
+          type: "array",
+          items: { type: "string" },
+          description: "Replace tags",
+        },
+      },
+      required: ["id"],
+    },
+  },
 ];
 
 // --- MCP Client ---
 // All tool calls go through the MCP server — single source of truth.
 
-const MCP_URL = "https://team-brain-mcp.carrera-328.workers.dev/mcp";
-
 const TOOL_NAME_MAP = {
   save_to_brain: "tb_save_entry",
   search_brain: "tb_search_entries",
   get_brain_summary: "tb_dashboard",
+  update_brain_entry: "tb_update_entry",
 };
 
-async function callMcp(toolName, args) {
-  const response = await fetch(MCP_URL, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      Accept: "application/json, text/event-stream",
-    },
-    body: JSON.stringify({
-      jsonrpc: "2.0",
-      id: 1,
-      method: "tools/call",
-      params: { name: toolName, arguments: args },
-    }),
-  });
+async function callMcp(toolName, args, env) {
+  try {
+    // Use service binding (env.MCP) to call the MCP worker directly
+    const response = await env.MCP.fetch("https://mcp/mcp", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Accept: "application/json, text/event-stream",
+      },
+      body: JSON.stringify({
+        jsonrpc: "2.0",
+        id: 1,
+        method: "tools/call",
+        params: { name: toolName, arguments: args },
+      }),
+    });
 
-  const result = await response.json();
-  if (result.result?.content?.[0]?.text) {
-    return result.result.content[0].text;
+    if (!response.ok) {
+      const errText = await response.text();
+      console.error("MCP HTTP error:", response.status, errText);
+      return JSON.stringify({ error: `MCP returned ${response.status}` });
+    }
+
+    const result = await response.json();
+    if (result.result?.content?.[0]?.text) {
+      return result.result.content[0].text;
+    }
+    return JSON.stringify(result.result || result.error || { error: "MCP call failed" });
+  } catch (err) {
+    console.error("MCP fetch error:", err.message || err);
+    return JSON.stringify({ error: "Failed to reach MCP server", detail: err.message });
   }
-  return JSON.stringify(result.result || result.error || { error: "MCP call failed" });
 }
 
 async function executeTool(name, input, env, userName) {
@@ -156,7 +213,7 @@ async function executeTool(name, input, env, userName) {
     args.author = userName;
   }
 
-  return await callMcp(mcpName, args);
+  return await callMcp(mcpName, args, env);
 }
 
 // --- Rate Limiting ---
@@ -365,7 +422,9 @@ async function streamWithToolUse(
 
     const toolResults = [];
     for (const tool of toolUseBlocks) {
+      console.log("Calling MCP tool:", tool.name, JSON.stringify(tool.input));
       const result = await executeTool(tool.name, tool.input, env, userName);
+      console.log("MCP result length:", result?.length, "preview:", result?.substring(0, 200));
       toolResults.push({
         type: "tool_result",
         tool_use_id: tool.id,
@@ -380,6 +439,7 @@ async function streamWithToolUse(
       { role: "user", content: toolResults },
     ];
 
+    console.log("Recursing with tool results, depth:", depth + 1);
     await streamWithToolUse(newMessages, writer, encoder, env, userName, depth + 1);
   }
 }
