@@ -136,6 +136,7 @@ export function registerGitHubTools(server: McpServer, config: GitHubConfig) {
             status: f.status,   
             additions: f.additions,
             deletions: f.deletions,
+            patch: f.patch  
           }));
       }
         return { content: [{ type: "text" as const, text: JSON.stringify(result, null, 2) }] };
