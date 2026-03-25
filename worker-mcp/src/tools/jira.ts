@@ -286,4 +286,124 @@ export function registerJiraTools(server: McpServer, config: JiraConfig) {
       }
     }
   );
+
+  // -----------------------------------------------------------------------
+  // Create issue
+  // -----------------------------------------------------------------------
+  server.registerTool(
+    "jira_create_issue",
+    {
+      title: "Create Jira Issue",
+      description:
+        "Create a new Jira issue (Story, Task, Bug, etc). Use when someone wants to create a ticket, log a bug, or add a story to the backlog.",
+      inputSchema: {
+        projectKey: z.string().describe("Project key, e.g. 'SCRUM'"),
+        summary: z.string().describe("Issue title/summary"),
+        issueType: z.enum(["Story", "Task", "Bug", "Epic", "Subtask"]).optional().describe("Issue type (default: Task)"),
+        description: z.string().optional().describe("Issue description"),
+        priority: z.enum(["Highest", "High", "Medium", "Low", "Lowest"]).optional().describe("Priority level"),
+        assignee: z.string().optional().describe("Atlassian account ID to assign to"),
+        labels: z.array(z.string()).optional().describe("Labels to apply"),
+      },
+      annotations: { readOnlyHint: false, destructiveHint: false, idempotentHint: false, openWorldHint: true },
+    },
+    async ({ projectKey, summary, issueType, description, priority, assignee, labels }) => {
+      try {
+        const fields: any = {
+          project: { key: projectKey },
+          summary,
+          issuetype: { name: issueType || "Task" },
+        };
+
+        if (description) {
+          fields.description = {
+            type: "doc",
+            version: 1,
+            content: [
+              {
+                type: "paragraph",
+                content: [{ type: "text", text: description }],
+              },
+            ],
+          };
+        }
+
+        if (priority) {
+          fields.priority = { name: priority };
+        }
+
+        if (assignee) {
+          fields.assignee = { accountId: assignee };
+        }
+
+        if (labels && labels.length > 0) {
+          fields.labels = labels;
+        }
+
+        const data = await jiraFetch(config, "/issue", {
+          method: "POST",
+          body: JSON.stringify({ fields }),
+        });
+
+        return {
+          content: [{
+            type: "text" as const,
+            text: `✅ Created ${data.key}: "${summary}"\n${config.baseUrl}/browse/${data.key}`,
+          }],
+        };
+      } catch (e: any) {
+        return { content: [{ type: "text" as const, text: `Jira create error: ${e.message}` }] };
+      }
+    }
+  );
+
+  // -----------------------------------------------------------------------
+  // Transition issue (move status)
+  // -----------------------------------------------------------------------
+  server.registerTool(
+    "jira_transition_issue",
+    {
+      title: "Transition Jira Issue",
+      description:
+        "Move a Jira issue to a different status (e.g. To Do → In Progress → Done). Use when someone says they started, finished, or want to change the status of a ticket.",
+      inputSchema: {
+        issueKey: z.string().describe("Issue key, e.g. 'SCRUM-5'"),
+        status: z.string().describe("Target status name, e.g. 'In Progress', 'Done', 'To Do'"),
+      },
+      annotations: { readOnlyHint: false, destructiveHint: false, idempotentHint: true, openWorldHint: true },
+    },
+    async ({ issueKey, status }) => {
+      try {
+        // Get available transitions
+        const transitions = await jiraFetch(config, `/issue/${issueKey}/transitions`);
+        const match = transitions.transitions.find(
+          (t: any) => t.name.toLowerCase() === status.toLowerCase() || t.to.name.toLowerCase() === status.toLowerCase()
+        );
+
+        if (!match) {
+          const available = transitions.transitions.map((t: any) => t.to.name).join(", ");
+          return {
+            content: [{
+              type: "text" as const,
+              text: `Can't move ${issueKey} to "${status}". Available transitions: ${available}`,
+            }],
+          };
+        }
+
+        await jiraFetch(config, `/issue/${issueKey}/transitions`, {
+          method: "POST",
+          body: JSON.stringify({ transition: { id: match.id } }),
+        });
+
+        return {
+          content: [{
+            type: "text" as const,
+            text: `✅ Moved ${issueKey} to "${match.to.name}"`,
+          }],
+        };
+      } catch (e: any) {
+        return { content: [{ type: "text" as const, text: `Jira transition error: ${e.message}` }] };
+      }
+    }
+  );
 }
