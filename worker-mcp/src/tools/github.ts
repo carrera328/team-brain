@@ -154,6 +154,53 @@ export function registerGitHubTools(server: McpServer, config: GitHubConfig) {
   );
 
   // -----------------------------------------------------------------------
+  // Get PR file changes & diffs
+  // -----------------------------------------------------------------------
+  server.registerTool(
+    "github_get_pr_files",
+    {
+      title: "Get PR File Changes & Diffs",
+      description:
+        `Get the actual file changes (diffs) for a pull request in ${repo}. Use when someone wants to see what code changed in a PR, review changes, or understand what a PR does.`,
+      inputSchema: {
+        number: z.number().describe("PR number"),
+      },
+      annotations: { readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: true },
+    },
+    async ({ number }) => {
+      try {
+        const files = await ghFetch(config, `/repos/${repo}/pulls/${number}/files?per_page=30`);
+        const result = files.map((f: any) => ({
+          filename: f.filename,
+          status: f.status,
+          additions: f.additions,
+          deletions: f.deletions,
+          patch: f.patch || "(binary or too large)",
+        }));
+
+        if (result.length === 0) {
+          return { content: [{ type: "text" as const, text: "No files changed in this PR." }] };
+        }
+
+        // Format nicely
+        let output = `## PR #${number} — Changed Files\n\n`;
+        for (const f of result) {
+          output += `### ${f.status === "added" ? "🟢" : f.status === "removed" ? "🔴" : "🟡"} ${f.filename} (${f.status})\n`;
+          output += `+${f.additions} -${f.deletions}\n`;
+          if (f.patch && f.patch !== "(binary or too large)") {
+            output += `\`\`\`diff\n${f.patch}\n\`\`\`\n`;
+          }
+          output += "\n";
+        }
+
+        return { content: [{ type: "text" as const, text: output }] };
+      } catch (e: any) {
+        return { content: [{ type: "text" as const, text: `GitHub PR files error: ${e.message}` }] };
+      }
+    }
+  );
+
+  // -----------------------------------------------------------------------
   // List open PRs
   // -----------------------------------------------------------------------
   server.registerTool(
