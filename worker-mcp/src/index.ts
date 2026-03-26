@@ -7,6 +7,7 @@ import { registerJiraTools } from "./tools/jira";
 import { registerConfluenceTools } from "./tools/confluence";
 import { registerSalesforceTools } from "./tools/salesforce";
 import { registerGitHubTools } from "./tools/github";
+import { registerOnboardingTools } from "./tools/onboarding";
 
 export interface Env {
   DB: D1Database;
@@ -47,6 +48,7 @@ function createServer(env: Env): McpServer {
   registerDashboardTool(server, env.DB);
   registerNoteTools(server, env.DB);
   registerUserTools(server, env.DB);
+  registerOnboardingTools(server, env.DB);
 
   // Jira integration
   if (env.JIRA_API_TOKEN) {
