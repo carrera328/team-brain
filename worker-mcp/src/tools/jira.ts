@@ -406,4 +406,98 @@ export function registerJiraTools(server: McpServer, config: JiraConfig) {
       }
     }
   );
+  // -----------------------------------------------------------------------
+  // Assign an issue
+  // -----------------------------------------------------------------------
+  server.registerTool(
+    "jira_assign_issue",
+    {
+      title: "Assign Jira Issue",
+      description:
+        "Assign an existing Jira issue to a user. Use when someone wants to assign a ticket to themselves or another team member.",
+      inputSchema: {
+        issueKey: z.string().describe("Issue key, e.g. 'SCRUM-42'"),
+        accountId: z.string().optional().describe("Atlassian account ID to assign to. Omit or pass null to unassign."),
+      },
+      annotations: { readOnlyHint: false, destructiveHint: false, idempotentHint: true, openWorldHint: true },
+    },
+    async ({ issueKey, accountId }) => {
+      try {
+        await jiraFetch(config, `/issue/${issueKey}/assignee`, {
+          method: "PUT",
+          body: JSON.stringify({ accountId: accountId ?? null }),
+        });
+        return {
+          content: [{
+            type: "text" as const,
+            text: accountId
+              ? `✅ Assigned ${issueKey} to account ${accountId}\n${config.baseUrl}/browse/${issueKey}`
+              : `✅ Unassigned ${issueKey}`,
+          }],
+        };
+      } catch (e: any) {
+        return { content: [{ type: "text" as const, text: `Jira assign error: ${e.message}` }] };
+      }
+    }
+  );
+  // -----------------------------------------------------------------------
+  // Assign an issue to sprint
+  // -----------------------------------------------------------------------
+  server.registerTool(
+  "jira_add_to_sprint",
+  {
+    title: "Add Issue to Sprint",
+    description:
+      "Add an existing Jira issue to a sprint. Can target the active sprint, or a specific sprint by name or number (e.g. 'Sprint 5').",
+    inputSchema: {
+      issueKey: z.string().describe("Issue key, e.g. 'SCRUM-42'"),
+      boardId: z.number().describe("Jira board ID"),
+      sprint: z.union([
+        z.literal("active"),
+        z.string().describe("Sprint name or partial match, e.g. 'Sprint 5'"),
+      ]).default("active").describe("Target sprint — 'active' or a sprint name like 'Sprint 5'"),
+    },
+    annotations: { readOnlyHint: false, destructiveHint: false, idempotentHint: true, openWorldHint: true },
+  },
+    async ({ issueKey, boardId, sprint }) => {
+      try {
+        let targetSprint;
+  
+        if (sprint === "active") {
+          // Fetch only the active sprint
+          const data = await jiraFetch(config, `/board/${boardId}/sprint?state=active`, {}, "agile");
+          targetSprint = data.values?.[0];
+        } else {
+          // Search across active + future sprints for a name match
+          const [active, future] = await Promise.all([
+            jiraFetch(config, `/board/${boardId}/sprint?state=active`, {}, "agile"),
+            jiraFetch(config, `/board/${boardId}/sprint?state=future`, {}, "agile"),
+          ]);
+  
+          const allSprints = [...(active.values ?? []), ...(future.values ?? [])];
+          targetSprint = allSprints.find((s: any) =>
+            s.name.toLowerCase().includes(sprint.toLowerCase())
+          );
+        }
+  
+        if (!targetSprint) {
+          return { content: [{ type: "text" as const, text: `No sprint found matching "${sprint}" on board ${boardId}.` }] };
+        }
+  
+        await jiraFetch(config, `/sprint/${targetSprint.id}/issue`, {
+          method: "POST",
+          body: JSON.stringify({ issues: [issueKey] }),
+        }, "agile");
+  
+        return {
+          content: [{
+            type: "text" as const,
+            text: `✅ Added ${issueKey} to sprint "${targetSprint.name}"\n${config.baseUrl}/browse/${issueKey}`,
+          }],
+        };
+      } catch (e: any) {
+        return { content: [{ type: "text" as const, text: `Jira sprint error: ${e.message}` }] };
+      }
+    }
+  );
 }
