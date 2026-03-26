@@ -409,30 +409,55 @@ export function registerJiraTools(server: McpServer, config: JiraConfig) {
   // -----------------------------------------------------------------------
   // Assign an issue
   // -----------------------------------------------------------------------
-  server.registerTool(
+    server.registerTool(
     "jira_assign_issue",
     {
       title: "Assign Jira Issue",
       description:
-        "Assign an existing Jira issue to a user. Use when someone wants to assign a ticket to themselves or another team member.",
+        "Assign an existing Jira issue to a user. Accepts an accountId directly, a name/email to search for, or 'me' to assign to the current user.",
       inputSchema: {
         issueKey: z.string().describe("Issue key, e.g. 'SCRUM-42'"),
-        accountId: z.string().optional().describe("Atlassian account ID to assign to. Omit or pass null to unassign."),
+        assignee: z.string().describe("Either an Atlassian accountId, a name/email to search for, or 'me' to assign to yourself."),
       },
       annotations: { readOnlyHint: false, destructiveHint: false, idempotentHint: true, openWorldHint: true },
     },
-    async ({ issueKey, accountId }) => {
+    async ({ issueKey, assignee }) => {
       try {
+        let accountId: string | null;
+  
+        if (assignee === "me") {
+          // Resolve to the authenticated user
+          const user = await jiraFetch(config, "/myself");
+          accountId = user.accountId;
+        } else if (assignee === "none" || assignee === "unassign") {
+          // Explicitly unassign
+          accountId = null;
+        } else if (assignee.includes(":")) {
+          // Looks like an accountId already (format: "712020:abc123...")
+          accountId = assignee;
+        } else {
+          // Treat as a name/email and search for the user
+          const results = await jiraFetch(config, `/user/search?query=${encodeURIComponent(assignee)}`);
+          if (!results.length) {
+            return { content: [{ type: "text" as const, text: `No Jira user found matching "${assignee}".` }] };
+          }
+          if (results.length > 1) {
+            const matches = results.map((u: any) => `• ${u.displayName} (${u.emailAddress})`).join("\n");
+            return { content: [{ type: "text" as const, text: `Multiple users found, please be more specific:\n${matches}` }] };
+          }
+          accountId = results[0].accountId;
+        }
+  
         await jiraFetch(config, `/issue/${issueKey}/assignee`, {
           method: "PUT",
-          body: JSON.stringify({ accountId: accountId ?? null }),
+          body: JSON.stringify({ accountId }),
         });
+  
+        const assigneeLabel = accountId ? `account ${accountId}` : "nobody (unassigned)";
         return {
           content: [{
             type: "text" as const,
-            text: accountId
-              ? `✅ Assigned ${issueKey} to account ${accountId}\n${config.baseUrl}/browse/${issueKey}`
-              : `✅ Unassigned ${issueKey}`,
+            text: `✅ Assigned ${issueKey} to ${assigneeLabel}\n${config.baseUrl}/browse/${issueKey}`,
           }],
         };
       } catch (e: any) {
