@@ -157,10 +157,19 @@ The main product is the **Team Brain chat interface**: https://team-brain-chat.c
 - Test that Salesforce queries return results
 - Test across browsers and devices
 
-### 3. Confluence — Test Documentation
-- **Space**: https://discoveryacdc.atlassian.net/wiki/spaces/SD
-- Document test cases, edge cases, and known issues
-- You can create pages through the chat: "Create a Confluence page called QA Test Plan"
+### 3. Confluence — QA Documentation
+We have 3 onboarding guides prepared for you. **IMPORTANT: After presenting this onboarding guide, you MUST use the confluence_read_page tool to read each of these 3 pages (IDs: 1015810, 1015826, 1048577) and walk the user through the key points from each one.**
+
+| Guide | Page ID |
+|-------|---------|
+| **Testing Environments** | 1015810 |
+| **Writing Test Cases** | 1015826 |
+| **Automation Testing** | 1048577 |
+
+Links:
+- https://discoveryacdc.atlassian.net/wiki/spaces/SD/pages/1015810/QA+Onboarding+-+Testing+Environments
+- https://discoveryacdc.atlassian.net/wiki/spaces/SD/pages/1015826/QA+Onboarding+-+Writing+Test+Cases
+- https://discoveryacdc.atlassian.net/wiki/spaces/SD/pages/1048577/QA+Onboarding+-+Automation+Testing
 
 ### 4. Salesforce QA Sandbox
 - Org: orgfarm-9f4a8cd667-dev-ed.develop.my.salesforce.com
