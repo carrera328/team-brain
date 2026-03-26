@@ -12,7 +12,7 @@ export function registerUserTools(server: McpServer, db: D1Database) {
         email: z
           .string()
           .email()
-          .describe("Google email address"),
+          .describe("Email address"),
         name: z
           .string()
           .optional()
@@ -21,6 +21,10 @@ export function registerUserTools(server: McpServer, db: D1Database) {
           .enum(["admin", "member"])
           .default("member")
           .describe("Role: 'admin' or 'member'"),
+        team_role: z
+          .enum(["developer", "qa", "product_owner", "scrum_master", "designer", "ba"])
+          .optional()
+          .describe("Team role: developer, qa, product_owner, scrum_master, designer, or ba"),
       },
       annotations: {
         readOnlyHint: false,
@@ -29,26 +33,27 @@ export function registerUserTools(server: McpServer, db: D1Database) {
         openWorldHint: false,
       },
     },
-    async ({ email, name, role }) => {
+    async ({ email, name, role, team_role }) => {
       const ts = new Date().toISOString();
       const normalizedEmail = email.toLowerCase();
       await db
         .prepare(
-          `INSERT INTO users (email, name, role, created_at, updated_at)
-           VALUES (?, ?, ?, ?, ?)
+          `INSERT INTO users (email, name, role, team_role, created_at, updated_at)
+           VALUES (?, ?, ?, ?, ?, ?)
            ON CONFLICT(email) DO UPDATE SET
              name = COALESCE(excluded.name, users.name),
              role = excluded.role,
+             team_role = COALESCE(excluded.team_role, users.team_role),
              updated_at = excluded.updated_at`
         )
-        .bind(normalizedEmail, name || null, role, ts, ts)
+        .bind(normalizedEmail, name || null, role, team_role || "developer", ts, ts)
         .run();
 
       return {
         content: [
           {
             type: "text" as const,
-            text: `User '${normalizedEmail}' added with role '${role}'.`,
+            text: `User '${normalizedEmail}' added with role '${role}', team_role '${team_role || "developer"}'.`,
           },
         ],
       };
@@ -87,6 +92,7 @@ export function registerUserTools(server: McpServer, db: D1Database) {
         email: r.email,
         name: r.name,
         role: r.role,
+        team_role: r.team_role || "developer",
         created_at: r.created_at,
       }));
 

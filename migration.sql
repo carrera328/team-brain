@@ -19,6 +19,7 @@ CREATE TABLE IF NOT EXISTS users (
   email TEXT UNIQUE NOT NULL,
   name TEXT,
   role TEXT DEFAULT 'member',
+  team_role TEXT DEFAULT 'developer',
   created_at TEXT NOT NULL,
   updated_at TEXT NOT NULL
 );

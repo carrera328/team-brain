@@ -25,6 +25,20 @@ export interface Env {
 // Server factory
 // ---------------------------------------------------------------------------
 
+async function runMigrations(db: D1Database) {
+  try {
+    // Auto-add team_role column if it doesn't exist
+    const tableInfo = await db.prepare("PRAGMA table_info(users)").all();
+    const columns = (tableInfo.results || []).map((r: any) => r.name);
+    if (!columns.includes("team_role")) {
+      await db.prepare("ALTER TABLE users ADD COLUMN team_role TEXT DEFAULT 'developer'").run();
+      console.log("Migration: added team_role column to users table");
+    }
+  } catch (e) {
+    console.error("Migration error:", e);
+  }
+}
+
 function createServer(env: Env): McpServer {
   const server = new McpServer({
     name: "team-brain-mcp-server",
@@ -108,6 +122,9 @@ export default {
     if (url.pathname !== "/mcp") {
       return new Response("Not Found", { status: 404, headers: CORS_HEADERS });
     }
+
+    // Run auto-migrations on first request
+    await runMigrations(env.DB);
 
     // Create MCP server & handle request (stateless)
     const server = createServer(env);
