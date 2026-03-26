@@ -48,7 +48,15 @@ function createServer(env: Env): McpServer {
   registerDashboardTool(server, env.DB);
   registerNoteTools(server, env.DB);
   registerUserTools(server, env.DB);
-  registerOnboardingTools(server, env.DB);
+  // Pass Confluence config to onboarding so it can fetch pages directly
+  const confluenceConfig = env.CONFLUENCE_API_TOKEN
+    ? {
+        baseUrl: env.JIRA_BASE_URL || "https://discoveryacdc.atlassian.net",
+        email: env.JIRA_EMAIL || "venkivenki8697@gmail.com",
+        apiToken: env.CONFLUENCE_API_TOKEN,
+      }
+    : undefined;
+  registerOnboardingTools(server, env.DB, confluenceConfig);
 
   // Jira integration
   if (env.JIRA_API_TOKEN) {

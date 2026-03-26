@@ -1,7 +1,60 @@
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { z } from "zod";
 
-export function registerOnboardingTools(server: McpServer, db: D1Database) {
+interface ConfluenceConfig {
+  baseUrl: string;
+  email: string;
+  apiToken: string;
+}
+
+function htmlToText(html: string): string {
+  if (!html) return "";
+  return html
+    .replace(/<br\s*\/?>/gi, "\n")
+    .replace(/<\/p>/gi, "\n\n")
+    .replace(/<\/h[1-6]>/gi, "\n\n")
+    .replace(/<h[1-6][^>]*>/gi, "\n### ")
+    .replace(/<li>/gi, "- ")
+    .replace(/<\/li>/gi, "\n")
+    .replace(/<[^>]+>/g, "")
+    .replace(/&amp;/g, "&")
+    .replace(/&lt;/g, "<")
+    .replace(/&gt;/g, ">")
+    .replace(/&quot;/g, '"')
+    .replace(/&#39;/g, "'")
+    .replace(/&nbsp;/g, " ")
+    .replace(/\n{3,}/g, "\n\n")
+    .trim();
+}
+
+async function fetchConfluencePage(config: ConfluenceConfig, pageId: string): Promise<{title: string, content: string, link: string} | null> {
+  try {
+    const auth = btoa(`${config.email}:${config.apiToken}`);
+    const resp = await fetch(`${config.baseUrl}/wiki/rest/api/content/${pageId}?expand=body.storage`, {
+      headers: {
+        Authorization: `Basic ${auth}`,
+        Accept: "application/json",
+      },
+    });
+    if (!resp.ok) return null;
+    const data: any = await resp.json();
+    return {
+      title: data.title,
+      content: htmlToText(data.body?.storage?.value || ""),
+      link: `${config.baseUrl}/wiki${data._links?.webui || `/spaces/SD/pages/${pageId}`}`,
+    };
+  } catch {
+    return null;
+  }
+}
+
+// QA onboarding Confluence page IDs
+const QA_ONBOARDING_PAGES = ["1015810", "1015826", "1048577"];
+
+// Developer onboarding — add page IDs here when created
+const DEV_ONBOARDING_PAGES: string[] = [];
+
+export function registerOnboardingTools(server: McpServer, db: D1Database, confluenceConfig?: ConfluenceConfig) {
   server.registerTool(
     "tb_onboard_user",
     {
@@ -56,11 +109,34 @@ export function registerOnboardingTools(server: McpServer, db: D1Database) {
         )
         .run();
 
+      // Fetch role-specific Confluence pages
+      let confluenceContent = "";
+      const pageIds = team_role === "qa" ? QA_ONBOARDING_PAGES : DEV_ONBOARDING_PAGES;
+
+      if (confluenceConfig && pageIds.length > 0) {
+        const pages = await Promise.all(
+          pageIds.map((id) => fetchConfluencePage(confluenceConfig, id))
+        );
+
+        const fetched = pages.filter((p) => p !== null) as { title: string; content: string; link: string }[];
+
+        if (fetched.length > 0) {
+          confluenceContent = `\n\n---\n\n# 📚 Your Onboarding Documentation\n\nHere are your required reading materials. Review each section below.\n`;
+
+          for (let i = 0; i < fetched.length; i++) {
+            const page = fetched[i];
+            confluenceContent += `\n---\n\n## ${i + 1}. ${page.title}\n📄 **Full doc:** ${page.link}\n\n${page.content}\n`;
+          }
+
+          confluenceContent += `\n---\n\n✅ **After reviewing all ${fetched.length} documents above**, you're ready to start working. Ask me any questions about what you just read!\n`;
+        }
+      }
+
       // Build role-specific onboarding content
       const guide = buildOnboardingGuide(name, team_role);
 
       return {
-        content: [{ type: "text" as const, text: guide }],
+        content: [{ type: "text" as const, text: guide + confluenceContent }],
       };
     }
   );
@@ -158,18 +234,7 @@ The main product is the **Team Brain chat interface**: https://team-brain-chat.c
 - Test across browsers and devices
 
 ### 3. Confluence — QA Documentation
-We have 3 onboarding guides prepared for you. **IMPORTANT: After presenting this onboarding guide, you MUST use the confluence_read_page tool to read each of these 3 pages (IDs: 1015810, 1015826, 1048577) and walk the user through the key points from each one.**
-
-| Guide | Page ID |
-|-------|---------|
-| **Testing Environments** | 1015810 |
-| **Writing Test Cases** | 1015826 |
-| **Automation Testing** | 1048577 |
-
-Links:
-- https://discoveryacdc.atlassian.net/wiki/spaces/SD/pages/1015810/QA+Onboarding+-+Testing+Environments
-- https://discoveryacdc.atlassian.net/wiki/spaces/SD/pages/1015826/QA+Onboarding+-+Writing+Test+Cases
-- https://discoveryacdc.atlassian.net/wiki/spaces/SD/pages/1048577/QA+Onboarding+-+Automation+Testing
+Your onboarding docs have been fetched and included below — review each section carefully.
 
 ### 4. Salesforce QA Sandbox
 - Org: orgfarm-9f4a8cd667-dev-ed.develop.my.salesforce.com
