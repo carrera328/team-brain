@@ -169,4 +169,110 @@ export function registerUserTools(server: McpServer, db: D1Database) {
       };
     }
   );
+
+  // -----------------------------------------------------------------------
+  // Update user
+  // -----------------------------------------------------------------------
+  server.registerTool(
+    "tb_update_user",
+    {
+      title: "Update User",
+      description:
+        "Update an existing team member's name, role, or team_role. Only provided fields are changed.",
+      inputSchema: {
+        email: z
+          .string()
+          .email()
+          .describe("Email of the user to update"),
+        name: z
+          .string()
+          .optional()
+          .describe("New display name"),
+        role: z
+          .enum(["admin", "member"])
+          .optional()
+          .describe("New role: 'admin' or 'member'"),
+        team_role: z
+          .enum(["developer", "qa", "product_owner", "scrum_master", "designer", "ba"])
+          .optional()
+          .describe("New team role"),
+      },
+      annotations: {
+        readOnlyHint: false,
+        destructiveHint: false,
+        idempotentHint: true,
+        openWorldHint: false,
+      },
+    },
+    async ({ email, name, role, team_role }) => {
+      const normalizedEmail = email.toLowerCase();
+
+      const user = await db
+        .prepare("SELECT * FROM users WHERE email = ?")
+        .bind(normalizedEmail)
+        .first();
+
+      if (!user) {
+        return {
+          content: [
+            {
+              type: "text" as const,
+              text: `No user found with email '${normalizedEmail}'.`,
+            },
+          ],
+        };
+      }
+
+      const updates: string[] = [];
+      const values: any[] = [];
+
+      if (name !== undefined) {
+        updates.push("name = ?");
+        values.push(name);
+      }
+      if (role !== undefined) {
+        updates.push("role = ?");
+        values.push(role);
+      }
+      if (team_role !== undefined) {
+        updates.push("team_role = ?");
+        values.push(team_role);
+      }
+
+      if (updates.length === 0) {
+        return {
+          content: [
+            {
+              type: "text" as const,
+              text: "No fields to update. Provide name, role, or team_role.",
+            },
+          ],
+        };
+      }
+
+      updates.push("updated_at = ?");
+      values.push(new Date().toISOString());
+      values.push(normalizedEmail);
+
+      await db
+        .prepare(`UPDATE users SET ${updates.join(", ")} WHERE email = ?`)
+        .bind(...values)
+        .run();
+
+      const changed = [
+        name !== undefined ? `name → '${name}'` : null,
+        role !== undefined ? `role → '${role}'` : null,
+        team_role !== undefined ? `team_role → '${team_role}'` : null,
+      ].filter(Boolean).join(", ");
+
+      return {
+        content: [
+          {
+            type: "text" as const,
+            text: `Updated '${normalizedEmail}': ${changed}`,
+          },
+        ],
+      };
+    }
+  );
 }
