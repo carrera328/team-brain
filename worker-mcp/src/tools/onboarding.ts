@@ -121,14 +121,46 @@ export function registerOnboardingTools(server: McpServer, db: D1Database, confl
         const fetched = pages.filter((p) => p !== null) as { title: string; content: string; link: string }[];
 
         if (fetched.length > 0) {
-          confluenceContent = `\n\n---\n\n# 📚 Your Onboarding Documentation\n\nHere are your required reading materials. Review each section below.\n`;
+          confluenceContent = `
+
+---
+
+# 📚 Your Onboarding Documentation
+
+FORMATTING INSTRUCTIONS FOR THE AI: Present each document below as its own visually distinct section. Use a header with an emoji and the document title, then render the content inside a markdown code block or quote block so it stands out from the rest of the message. Include the clickable link at the end of each section. Put a horizontal rule between each document. Walk the user through each document one at a time — summarize the key takeaways after each one.
+
+`;
 
           for (let i = 0; i < fetched.length; i++) {
             const page = fetched[i];
-            confluenceContent += `\n---\n\n## ${i + 1}. ${page.title}\n📄 **Full doc:** ${page.link}\n\n${page.content}\n`;
+            confluenceContent += `
+---
+
+## 📄 Document ${i + 1} of ${fetched.length}: ${page.title}
+
+> **Source:** [${page.title}](${page.link})
+
+\`\`\`
+${page.content}
+\`\`\`
+
+**Key takeaways to highlight for the user from this document ^**
+
+🔗 **Open full doc:** ${page.link}
+
+`;
           }
 
-          confluenceContent += `\n---\n\n✅ **After reviewing all ${fetched.length} documents above**, you're ready to start working. Ask me any questions about what you just read!\n`;
+          confluenceContent += `
+---
+
+✅ **All ${fetched.length} onboarding documents have been loaded above.**
+
+After presenting each document, ask the user:
+1. Do you have questions about any of the documents?
+2. Are you ready to start your first task?
+3. Would you like me to create a Jira ticket for your first assignment?
+`;
         }
       }
 
