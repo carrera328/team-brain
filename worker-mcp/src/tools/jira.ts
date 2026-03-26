@@ -422,47 +422,45 @@ export function registerJiraTools(server: McpServer, config: JiraConfig) {
       annotations: { readOnlyHint: false, destructiveHint: false, idempotentHint: true, openWorldHint: true },
     },
     async ({ issueKey, assignee }) => {
-      try {
-        let accountId: string | null;
-  
-        if (assignee === "me") {
-          // Resolve to the authenticated user
-          const user = await jiraFetch(config, "/myself");
-          accountId = user.accountId;
-        } else if (assignee === "none" || assignee === "unassign") {
-          // Explicitly unassign
-          accountId = null;
-        } else if (assignee.includes(":")) {
-          // Looks like an accountId already (format: "712020:abc123...")
-          accountId = assignee;
-        } else {
-          // Treat as a name/email and search for the user
-          const results = await jiraFetch(config, `/user/search?query=${encodeURIComponent(assignee)}`);
-          if (!results.length) {
-            return { content: [{ type: "text" as const, text: `No Jira user found matching "${assignee}".` }] };
-          }
-          if (results.length > 1) {
-            const matches = results.map((u: any) => `• ${u.displayName} (${u.emailAddress})`).join("\n");
-            return { content: [{ type: "text" as const, text: `Multiple users found, please be more specific:\n${matches}` }] };
-          }
-          accountId = results[0].accountId;
+        try {
+            let accountId: string | null;
+            let displayName: string;
+
+            if (assignee === "me") {
+            const user = await jiraFetch(config, "/myself");
+            accountId = user.accountId;
+            displayName = user.displayName;
+            } else if (assignee === "none" || assignee === "unassign") {
+            accountId = null;
+            displayName = "nobody (unassigned)";
+            } else {
+            // Handle both raw accountIds and name/email searches
+            const results = await jiraFetch(config, `/user/search?query=${encodeURIComponent(assignee)}`);
+            if (!results.length) {
+                return { content: [{ type: "text" as const, text: `No Jira user found matching "${assignee}".` }] };
+            }
+            if (results.length > 1) {
+                const matches = results.map((u: any) => `• ${u.displayName} (${u.emailAddress})`).join("\n");
+                return { content: [{ type: "text" as const, text: `Multiple users found, please be more specific:\n${matches}` }] };
+            }
+            accountId = results[0].accountId;
+            displayName = results[0].displayName;
+            }
+
+            await jiraFetch(config, `/issue/${issueKey}/assignee`, {
+            method: "PUT",
+            body: JSON.stringify({ accountId }),
+            });
+
+            return {
+            content: [{
+                type: "text" as const,
+                text: `✅ Assigned ${issueKey} to ${displayName}\n${config.baseUrl}/browse/${issueKey}`,
+            }],
+            };
+        } catch (e: any) {
+            return { content: [{ type: "text" as const, text: `Jira assign error: ${e.message}` }] };
         }
-  
-        await jiraFetch(config, `/issue/${issueKey}/assignee`, {
-          method: "PUT",
-          body: JSON.stringify({ accountId }),
-        });
-  
-        const assigneeLabel = accountId ? `account ${accountId}` : "nobody (unassigned)";
-        return {
-          content: [{
-            type: "text" as const,
-            text: `✅ Assigned ${issueKey} to ${assigneeLabel}\n${config.baseUrl}/browse/${issueKey}`,
-          }],
-        };
-      } catch (e: any) {
-        return { content: [{ type: "text" as const, text: `Jira assign error: ${e.message}` }] };
-      }
     }
   );
   // -----------------------------------------------------------------------
