@@ -425,38 +425,49 @@ export function registerJiraTools(server: McpServer, config: JiraConfig) {
         try {
             let accountId: string | null;
             let displayName: string;
-
+            
             if (assignee === "me") {
-            const user = await jiraFetch(config, "/myself");
-            accountId = user.accountId;
-            displayName = user.displayName;
+                const user = await jiraFetch(config, "/myself");
+                accountId = user.accountId;
+                displayName = user.displayName;
             } else if (assignee === "none" || assignee === "unassign") {
-            accountId = null;
-            displayName = "nobody (unassigned)";
+                accountId = null;
+                displayName = "nobody (unassigned)";
             } else {
-            // Handle both raw accountIds and name/email searches
-            const results = await jiraFetch(config, `/user/search?query=${encodeURIComponent(assignee)}`);
-            if (!results.length) {
-                return { content: [{ type: "text" as const, text: `No Jira user found matching "${assignee}".` }] };
-            }
-            if (results.length > 1) {
-                const matches = results.map((u: any) => `• ${u.displayName} (${u.emailAddress})`).join("\n");
-                return { content: [{ type: "text" as const, text: `Multiple users found, please be more specific:\n${matches}` }] };
-            }
-            accountId = results[0].accountId;
-            displayName = results[0].displayName;
+                const results = await jiraFetch(config, `/user/search?query=${encodeURIComponent(assignee)}`);
+                if (!results.length) {
+                    return { content: [{ type: "text" as const, text: `No Jira user found matching "${assignee}".` }] };
+                }
+                if (results.length > 1) {
+                    const matches = results.map((u: any) => `• ${u.displayName} (${u.emailAddress})`).join("\n");
+                    return { content: [{ type: "text" as const, text: `Multiple users found, please be more specific:\n${matches}` }] };
+                }
+                accountId = results[0].accountId;
+                displayName = results[0].displayName;
             }
 
-            await jiraFetch(config, `/issue/${issueKey}/assignee`, {
-            method: "PUT",
-            body: JSON.stringify({ accountId }),
+            // ✅ Use raw fetch here instead of jiraFetch to handle 204 No Content
+            const url = `${config.baseUrl}/rest/api/3/issue/${issueKey}/assignee`;
+            const res = await fetch(url, {
+                method: "PUT",
+                headers: {
+                    "Authorization": `Basic ${Buffer.from(`${config.email}:${config.apiToken}`).toString("base64")}`,
+                    "Content-Type": "application/json",
+                },
+                body: JSON.stringify({ accountId }),
             });
 
+            if (!res.ok) {
+                const errText = await res.text();
+                throw new Error(`HTTP ${res.status}: ${errText}`);
+            }
+
+            // 204 = success, no body to parse
             return {
-            content: [{
-                type: "text" as const,
-                text: `✅ Assigned ${issueKey} to ${displayName}\n${config.baseUrl}/browse/${issueKey}`,
-            }],
+                content: [{
+                    type: "text" as const,
+                    text: `✅ Assigned ${issueKey} to ${displayName}\n${config.baseUrl}/browse/${issueKey}`,
+                }],
             };
         } catch (e: any) {
             return { content: [{ type: "text" as const, text: `Jira assign error: ${e.message}` }] };
