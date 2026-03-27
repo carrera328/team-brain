@@ -43,4 +43,4 @@ jobs:
         uses: cloudflare/wrangler-action@v3
         with:
           apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
-          command: pages deploy site/ --project-name=team-brain
+          command: pages deploy site/ --project-name=team-brain --branch=main
