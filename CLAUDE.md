@@ -24,7 +24,8 @@ Team Brain is a shared MCP (Model Context Protocol) server + chat interface buil
 5. Perry Golas (ptgolas@hotmail.com) — member, product_owner
 
 ## Deploying
-Push to master — GitHub Actions auto-deploys both workers to Cloudflare.
+**ALWAYS push to master for deployment.** Never use `wrangler deploy` or `wrangler pages deploy` directly.
+Push to master — GitHub Actions auto-deploys both workers and the site to Cloudflare.
 
 ## Local Dev
 ```bash

@@ -7,5 +7,11 @@ compatibility_date = "2024-12-01"
 binding = "MCP"
 service = "team-brain-mcp"
 
-# Secrets (set via: npx wrangler secret put ANTHROPIC_API_KEY)
-# ANTHROPIC_API_KEY — your Claude API key
+# OAuth client IDs (public — safe to put in vars)
+# Set these after creating OAuth apps in Google Cloud Console & Azure AD
+[vars]
+GOOGLE_CLIENT_ID = "755271501242-snfj7msqluk14s4fmuha3mf7dddevipg.apps.googleusercontent.com"
+MICROSOFT_CLIENT_ID = "4f9a1ded-11ef-4059-86b5-f6aa38dd01e6"
+
+# Secrets (set via: npx wrangler secret put <NAME>)
+# ANTHROPIC_API_KEY — your Claude API key (also used to sign session tokens)

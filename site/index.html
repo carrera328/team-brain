@@ -1,0 +1,1194 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Team Brain</title>
+  <!-- Google Identity Services -->
+  <script src="https://accounts.google.com/gsi/client" async defer></script>
+  <!-- Microsoft Authentication Library (MSAL) -->
+  <script src="https://alcdn.msauth.net/browser/2.38.0/js/msal-browser.min.js"></script>
+  <style>
+    :root {
+      --bg-primary: #0f1117;
+      --bg-secondary: #1a1b26;
+      --bg-tertiary: #24253a;
+      --bg-input: #1e1f2e;
+      --text-primary: #e1e2e8;
+      --text-secondary: #9294a0;
+      --text-muted: #5f6170;
+      --accent: #6c63ff;
+      --accent-hover: #7b73ff;
+      --accent-glow: rgba(108, 99, 255, 0.15);
+      --brain-green: #4ade80;
+      --brain-blue: #60a5fa;
+      --user-bubble: #2d2e42;
+      --ai-bubble: transparent;
+      --border: #2a2b3d;
+      --radius: 12px;
+      --radius-lg: 16px;
+    }
+
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', sans-serif;
+      background: var(--bg-primary);
+      color: var(--text-primary);
+      height: 100dvh;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+
+    /* --- Header --- */
+    .header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 12px 20px;
+      background: var(--bg-secondary);
+      border-bottom: 1px solid var(--border);
+      flex-shrink: 0;
+    }
+
+    .header-left {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .brain-icon {
+      width: 36px;
+      height: 36px;
+      background: linear-gradient(135deg, var(--accent), var(--brain-green));
+      border-radius: 10px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 20px;
+    }
+
+    .header-title {
+      font-size: 18px;
+      font-weight: 600;
+      background: linear-gradient(135deg, var(--text-primary), var(--brain-blue));
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
+
+    .header-subtitle {
+      font-size: 11px;
+      color: var(--text-muted);
+      letter-spacing: 0.5px;
+      text-transform: uppercase;
+    }
+
+    .header-right {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .user-badge {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 6px 12px;
+      background: var(--bg-tertiary);
+      border-radius: 20px;
+      font-size: 13px;
+      color: var(--text-secondary);
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+
+    .user-badge:hover {
+      background: var(--accent);
+      color: white;
+    }
+
+    .user-avatar {
+      width: 24px;
+      height: 24px;
+      border-radius: 50%;
+      background: var(--accent);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 12px;
+      font-weight: 600;
+      color: white;
+    }
+
+    .user-role {
+      font-size: 11px;
+      color: var(--text-muted);
+      text-transform: capitalize;
+    }
+
+    .btn-new-chat {
+      padding: 6px 14px;
+      background: var(--bg-tertiary);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      color: var(--text-secondary);
+      font-size: 13px;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+
+    .btn-new-chat:hover {
+      background: var(--accent);
+      color: white;
+      border-color: var(--accent);
+    }
+
+    /* --- Messages Area --- */
+    .messages-container {
+      flex: 1;
+      overflow-y: auto;
+      padding: 20px;
+      scroll-behavior: smooth;
+    }
+
+    .messages-container::-webkit-scrollbar { width: 6px; }
+    .messages-container::-webkit-scrollbar-track { background: transparent; }
+    .messages-container::-webkit-scrollbar-thumb {
+      background: var(--border);
+      border-radius: 3px;
+    }
+
+    .message {
+      display: flex;
+      gap: 12px;
+      margin-bottom: 20px;
+      max-width: 800px;
+      margin-left: auto;
+      margin-right: auto;
+      animation: fadeIn 0.3s ease;
+    }
+
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(8px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    .message.user {
+      flex-direction: row-reverse;
+    }
+
+    .message-avatar {
+      width: 32px;
+      height: 32px;
+      border-radius: 50%;
+      flex-shrink: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 14px;
+      font-weight: 600;
+    }
+
+    .message.user .message-avatar {
+      background: var(--accent);
+      color: white;
+    }
+
+    .message.assistant .message-avatar {
+      background: linear-gradient(135deg, var(--accent), var(--brain-green));
+      color: white;
+      font-size: 16px;
+    }
+
+    .message-content {
+      padding: 12px 16px;
+      border-radius: var(--radius);
+      line-height: 1.6;
+      font-size: 14px;
+      max-width: calc(100% - 50px);
+    }
+
+    .message.user .message-content {
+      background: var(--user-bubble);
+      border-bottom-right-radius: 4px;
+    }
+
+    .message.assistant .message-content {
+      background: var(--ai-bubble);
+      border-bottom-left-radius: 4px;
+    }
+
+    .message-content p { margin-bottom: 8px; }
+    .message-content p:last-child { margin-bottom: 0; }
+    .message-content strong { color: var(--brain-blue); }
+    .message-content code {
+      background: var(--bg-tertiary);
+      padding: 2px 6px;
+      border-radius: 4px;
+      font-size: 13px;
+    }
+    .message-content pre {
+      background: var(--bg-tertiary);
+      padding: 12px;
+      border-radius: 8px;
+      overflow-x: auto;
+      margin: 8px 0;
+    }
+    .message-content pre code {
+      background: transparent;
+      padding: 0;
+    }
+    .message-content ul, .message-content ol {
+      margin: 8px 0;
+      padding-left: 20px;
+    }
+    .message-content li { margin-bottom: 4px; }
+    .message-content a {
+      color: var(--brain-blue);
+      text-decoration: none;
+    }
+    .message-content a:hover { text-decoration: underline; }
+
+    /* Brain activity indicator */
+    .brain-activity {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 8px 14px;
+      background: var(--accent-glow);
+      border: 1px solid rgba(108, 99, 255, 0.2);
+      border-radius: 8px;
+      font-size: 13px;
+      color: var(--accent);
+      margin: 8px 0;
+      animation: pulse 1.5s ease-in-out infinite;
+    }
+
+    @keyframes pulse {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.6; }
+    }
+
+    .brain-activity-icon {
+      font-size: 16px;
+      animation: spin 2s linear infinite;
+    }
+
+    @keyframes spin {
+      from { transform: rotate(0deg); }
+      to { transform: rotate(360deg); }
+    }
+
+    /* Typing indicator */
+    .typing-indicator {
+      display: flex;
+      gap: 4px;
+      padding: 8px 0;
+    }
+
+    .typing-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: var(--text-muted);
+      animation: typingBounce 1.4s ease-in-out infinite;
+    }
+
+    .typing-dot:nth-child(2) { animation-delay: 0.2s; }
+    .typing-dot:nth-child(3) { animation-delay: 0.4s; }
+
+    @keyframes typingBounce {
+      0%, 60%, 100% { transform: translateY(0); }
+      30% { transform: translateY(-6px); }
+    }
+
+    /* --- Welcome Screen --- */
+    .welcome-screen {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 40px 20px;
+      text-align: center;
+    }
+
+    .welcome-brain {
+      width: 80px;
+      height: 80px;
+      background: linear-gradient(135deg, var(--accent), var(--brain-green));
+      border-radius: 24px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 40px;
+      margin-bottom: 24px;
+      box-shadow: 0 8px 32px var(--accent-glow);
+    }
+
+    .welcome-title {
+      font-size: 28px;
+      font-weight: 700;
+      margin-bottom: 8px;
+      background: linear-gradient(135deg, var(--text-primary), var(--brain-blue));
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
+
+    .welcome-desc {
+      font-size: 15px;
+      color: var(--text-secondary);
+      max-width: 480px;
+      line-height: 1.6;
+      margin-bottom: 32px;
+    }
+
+    .starters {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      justify-content: center;
+      max-width: 600px;
+    }
+
+    .starter-btn {
+      padding: 10px 18px;
+      background: var(--bg-secondary);
+      border: 1px solid var(--border);
+      border-radius: 20px;
+      color: var(--text-secondary);
+      font-size: 13px;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+
+    .starter-btn:hover {
+      background: var(--bg-tertiary);
+      border-color: var(--accent);
+      color: var(--text-primary);
+    }
+
+    /* --- Input Area --- */
+    .input-area {
+      padding: 12px 20px 20px;
+      background: var(--bg-primary);
+      flex-shrink: 0;
+    }
+
+    .input-wrapper {
+      max-width: 800px;
+      margin: 0 auto;
+      display: flex;
+      align-items: flex-end;
+      gap: 10px;
+      background: var(--bg-input);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-lg);
+      padding: 8px 8px 8px 16px;
+      transition: border-color 0.2s;
+    }
+
+    .input-wrapper:focus-within {
+      border-color: var(--accent);
+      box-shadow: 0 0 0 2px var(--accent-glow);
+    }
+
+    .input-wrapper textarea {
+      flex: 1;
+      background: transparent;
+      border: none;
+      color: var(--text-primary);
+      font-size: 14px;
+      font-family: inherit;
+      line-height: 1.5;
+      resize: none;
+      outline: none;
+      max-height: 120px;
+      padding: 6px 0;
+    }
+
+    .input-wrapper textarea::placeholder {
+      color: var(--text-muted);
+    }
+
+    .btn-send {
+      width: 36px;
+      height: 36px;
+      background: var(--accent);
+      border: none;
+      border-radius: 10px;
+      color: white;
+      font-size: 18px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: all 0.2s;
+      flex-shrink: 0;
+    }
+
+    .btn-send:hover { background: var(--accent-hover); }
+    .btn-send:disabled {
+      background: var(--bg-tertiary);
+      color: var(--text-muted);
+      cursor: not-allowed;
+    }
+
+    .input-hint {
+      text-align: center;
+      font-size: 11px;
+      color: var(--text-muted);
+      margin-top: 8px;
+    }
+
+    /* --- Login Page --- */
+    .login-overlay {
+      position: fixed;
+      inset: 0;
+      background: var(--bg-primary);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      z-index: 100;
+    }
+
+    .login-card {
+      background: var(--bg-secondary);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-lg);
+      padding: 40px 36px;
+      max-width: 420px;
+      width: 90%;
+      text-align: center;
+    }
+
+    .login-icon {
+      width: 72px;
+      height: 72px;
+      background: linear-gradient(135deg, var(--accent), var(--brain-green));
+      border-radius: 20px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 36px;
+      margin: 0 auto 24px;
+      box-shadow: 0 8px 32px var(--accent-glow);
+    }
+
+    .login-card h2 {
+      font-size: 24px;
+      margin-bottom: 8px;
+    }
+
+    .login-card .login-subtitle {
+      color: var(--text-secondary);
+      font-size: 14px;
+      margin-bottom: 32px;
+      line-height: 1.5;
+    }
+
+    .auth-buttons {
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+      margin-bottom: 16px;
+    }
+
+    .auth-btn {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 12px;
+      padding: 14px 20px;
+      border: 2px solid var(--border);
+      border-radius: 12px;
+      font-size: 15px;
+      font-weight: 500;
+      cursor: pointer;
+      transition: all 0.2s;
+      width: 100%;
+      font-family: inherit;
+    }
+
+    .auth-btn svg {
+      width: 20px;
+      height: 20px;
+      flex-shrink: 0;
+    }
+
+    .auth-btn.google-btn {
+      background: #fff;
+      color: #3c4043;
+    }
+
+    .auth-btn.google-btn:hover {
+      background: #f8f9fa;
+      border-color: #4285f4;
+    }
+
+    .auth-btn.microsoft-btn {
+      background: #2f2f2f;
+      color: #fff;
+    }
+
+    .auth-btn.microsoft-btn:hover {
+      background: #404040;
+      border-color: #00a4ef;
+    }
+
+    .auth-btn:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+    }
+
+    .auth-error {
+      margin-top: 16px;
+      padding: 12px;
+      background: rgba(239, 68, 68, 0.1);
+      border: 1px solid rgba(239, 68, 68, 0.3);
+      border-radius: 8px;
+      color: #f87171;
+      font-size: 13px;
+      line-height: 1.5;
+    }
+
+    .auth-loading {
+      margin-top: 16px;
+      padding: 12px;
+      color: var(--accent);
+      font-size: 14px;
+      animation: pulse 1.5s ease-in-out infinite;
+    }
+
+    .auth-divider {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      margin: 20px 0;
+      color: var(--text-muted);
+      font-size: 12px;
+    }
+
+    .auth-divider::before, .auth-divider::after {
+      content: "";
+      flex: 1;
+      height: 1px;
+      background: var(--border);
+    }
+
+    .hidden { display: none !important; }
+
+    /* Responsive */
+    @media (max-width: 600px) {
+      .header { padding: 10px 14px; }
+      .messages-container { padding: 14px; }
+      .input-area { padding: 10px 14px 14px; }
+      .welcome-title { font-size: 22px; }
+      .starters { flex-direction: column; align-items: center; }
+      .login-card { padding: 28px 24px; }
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Login Page -->
+  <div id="loginPage" class="login-overlay">
+    <div class="login-card">
+      <div class="login-icon">&#129504;</div>
+      <h2>Team Brain</h2>
+      <p class="login-subtitle">Sign in with your team account to start collaborating.</p>
+      <div class="auth-buttons">
+        <button id="googleBtn" class="auth-btn google-btn" disabled>
+          <svg viewBox="0 0 24 24"><path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92a5.06 5.06 0 0 1-2.2 3.32v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.1z"/><path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/><path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"/><path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/></svg>
+          Sign in with Google
+        </button>
+        <button id="microsoftBtn" class="auth-btn microsoft-btn" disabled>
+          <svg viewBox="0 0 21 21"><rect x="1" y="1" width="9" height="9" fill="#F25022"/><rect x="11" y="1" width="9" height="9" fill="#7FBA00"/><rect x="1" y="11" width="9" height="9" fill="#00A4EF"/><rect x="11" y="11" width="9" height="9" fill="#FFB900"/></svg>
+          Sign in with Microsoft
+        </button>
+      </div>
+      <div id="authError" class="auth-error hidden"></div>
+      <div id="authLoading" class="auth-loading hidden">Verifying your identity...</div>
+    </div>
+  </div>
+
+  <!-- Header -->
+  <div class="header">
+    <div class="header-left">
+      <div class="brain-icon">&#129504;</div>
+      <div>
+        <div class="header-title">Team Brain</div>
+        <div class="header-subtitle">Shared Knowledge Base</div>
+      </div>
+    </div>
+    <div class="header-right">
+      <div class="user-badge" id="userBadge">
+        <div class="user-avatar" id="userAvatar">?</div>
+        <span id="userNameDisplay">--</span>
+        <span class="user-role" id="userRoleDisplay"></span>
+      </div>
+      <button class="btn-new-chat" id="newChatBtn">New Chat</button>
+    </div>
+  </div>
+
+  <!-- Messages -->
+  <div class="messages-container" id="messagesContainer">
+    <div class="welcome-screen" id="welcomeScreen">
+      <div class="welcome-brain">&#129504;</div>
+      <div class="welcome-title">Team Brain</div>
+      <div class="welcome-desc">
+        Your team's shared AI knowledge base. Ask questions, save ideas, track decisions, and build collective knowledge together. Everything you save is accessible to the whole team.
+      </div>
+      <div class="starters">
+        <button class="starter-btn" data-msg="What's in the brain so far?">What's in the brain?</button>
+        <button class="starter-btn" data-msg="I have an idea I want to save">Save an idea</button>
+        <button class="starter-btn" data-msg="We just made a team decision I want to record">Record a decision</button>
+        <button class="starter-btn" data-msg="Search the brain for anything about our project">Search the brain</button>
+        <button class="starter-btn" data-msg="What is this tool and how does it work?">How does this work?</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Input -->
+  <div class="input-area">
+    <div class="input-wrapper">
+      <textarea id="chatInput" placeholder="Message the brain..." rows="1"></textarea>
+      <button class="btn-send" id="sendBtn" disabled>&#8593;</button>
+    </div>
+    <div class="input-hint">Happy innovation week!</div>
+  </div>
+
+  <script>
+    // --- Config ---
+    const WORKER_URL = "https://team-brain-chat.carrera-328.workers.dev";
+
+    // --- State ---
+    let currentUser = JSON.parse(localStorage.getItem("tb_user") || "null");
+    let sessionToken = localStorage.getItem("tb_session") || null;
+    let userName = currentUser?.name || "";
+    let sessionId = localStorage.getItem("tb_sessionId") || crypto.randomUUID();
+    let messages = JSON.parse(localStorage.getItem("tb_messages") || "[]");
+    let isStreaming = false;
+    let authConfig = null;
+    let msalInstance = null;
+
+    localStorage.setItem("tb_sessionId", sessionId);
+
+    // --- DOM ---
+    const loginPage = document.getElementById("loginPage");
+    const googleBtn = document.getElementById("googleBtn");
+    const microsoftBtn = document.getElementById("microsoftBtn");
+    const authError = document.getElementById("authError");
+    const authLoading = document.getElementById("authLoading");
+    const userBadge = document.getElementById("userBadge");
+    const userAvatar = document.getElementById("userAvatar");
+    const userNameDisplay = document.getElementById("userNameDisplay");
+    const userRoleDisplay = document.getElementById("userRoleDisplay");
+    const messagesContainer = document.getElementById("messagesContainer");
+    const welcomeScreen = document.getElementById("welcomeScreen");
+    const chatInput = document.getElementById("chatInput");
+    const sendBtn = document.getElementById("sendBtn");
+    const newChatBtn = document.getElementById("newChatBtn");
+
+    // --- Auth: Initialize OAuth providers ---
+    async function initAuth() {
+      try {
+        const res = await fetch(`${WORKER_URL}/auth/config`);
+        authConfig = await res.json();
+      } catch (err) {
+        console.error("Failed to load auth config:", err);
+        showAuthError("Could not connect to the server. Check that the worker is deployed.");
+        return;
+      }
+
+      // Initialize Google OAuth
+      if (authConfig.googleClientId) {
+        // Wait for Google script to load
+        await waitForGoogle();
+        googleBtn.disabled = false;
+        googleBtn.addEventListener("click", signInWithGoogle);
+      } else {
+        googleBtn.style.display = "none";
+      }
+
+      // Initialize Microsoft OAuth (MSAL)
+      if (authConfig.microsoftClientId) {
+        try {
+          msalInstance = new msal.PublicClientApplication({
+            auth: {
+              clientId: authConfig.microsoftClientId,
+              authority: "https://login.microsoftonline.com/common",
+              redirectUri: window.location.origin,
+            },
+            cache: {
+              cacheLocation: "localStorage",
+            },
+          });
+          await msalInstance.initialize();
+          microsoftBtn.disabled = false;
+          microsoftBtn.addEventListener("click", signInWithMicrosoft);
+        } catch (err) {
+          console.error("MSAL init error:", err);
+        }
+      } else {
+        microsoftBtn.style.display = "none";
+      }
+
+      // If neither provider is configured, show a helpful error
+      if (!authConfig.googleClientId && !authConfig.microsoftClientId) {
+        showAuthError("No OAuth providers configured. Set GOOGLE_CLIENT_ID and/or MICROSOFT_CLIENT_ID on the worker.");
+      }
+    }
+
+    function waitForGoogle() {
+      return new Promise((resolve) => {
+        if (window.google?.accounts?.oauth2) return resolve();
+        const check = setInterval(() => {
+          if (window.google?.accounts?.oauth2) {
+            clearInterval(check);
+            resolve();
+          }
+        }, 100);
+        // Give up after 5 seconds
+        setTimeout(() => { clearInterval(check); resolve(); }, 5000);
+      });
+    }
+
+    // --- Auth: Google Sign-In ---
+    let googleTokenClient = null;
+
+    function signInWithGoogle() {
+      hideAuthError();
+      if (!googleTokenClient) {
+        googleTokenClient = google.accounts.oauth2.initTokenClient({
+          client_id: authConfig.googleClientId,
+          scope: "email profile openid",
+          callback: handleGoogleResponse,
+        });
+      }
+      googleTokenClient.requestAccessToken();
+    }
+
+    async function handleGoogleResponse(tokenResponse) {
+      if (tokenResponse.error) {
+        showAuthError("Google sign-in was cancelled or failed.");
+        return;
+      }
+      await verifyWithServer("google", tokenResponse.access_token);
+    }
+
+    // --- Auth: Microsoft Sign-In ---
+    async function signInWithMicrosoft() {
+      hideAuthError();
+      try {
+        const result = await msalInstance.loginPopup({
+          scopes: ["User.Read"],
+        });
+        await verifyWithServer("microsoft", result.accessToken);
+      } catch (err) {
+        if (err.errorCode === "user_cancelled") {
+          // User closed the popup — not an error
+          return;
+        }
+        console.error("MSAL error:", err);
+        showAuthError("Microsoft sign-in failed. Please try again.");
+      }
+    }
+
+    // --- Auth: Verify with our server ---
+    async function verifyWithServer(provider, token) {
+      showAuthLoading();
+      try {
+        const res = await fetch(`${WORKER_URL}/auth/verify`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ provider, token }),
+        });
+
+        const data = await res.json();
+        hideAuthLoading();
+
+        if (!res.ok) {
+          if (res.status === 403) {
+            showAuthError(data.message || `${data.email} is not a registered team member.`);
+          } else {
+            showAuthError(data.error || "Verification failed. Please try again.");
+          }
+          return;
+        }
+
+        // Success — save session and user
+        sessionToken = data.session;
+        currentUser = data.user;
+        userName = currentUser.name || currentUser.email;
+
+        localStorage.setItem("tb_session", sessionToken);
+        localStorage.setItem("tb_user", JSON.stringify(currentUser));
+
+        loginPage.classList.add("hidden");
+        updateUserDisplay();
+        renderMessages();
+        chatInput.focus();
+      } catch (err) {
+        hideAuthLoading();
+        console.error("Verify error:", err);
+        showAuthError("Could not connect to the server. Please try again.");
+      }
+    }
+
+    // --- Auth: Helpers ---
+    function showAuthError(msg) {
+      authError.textContent = msg;
+      authError.classList.remove("hidden");
+    }
+
+    function hideAuthError() {
+      authError.classList.add("hidden");
+    }
+
+    function showAuthLoading() {
+      authLoading.classList.remove("hidden");
+      googleBtn.disabled = true;
+      microsoftBtn.disabled = true;
+    }
+
+    function hideAuthLoading() {
+      authLoading.classList.add("hidden");
+      if (authConfig?.googleClientId) googleBtn.disabled = false;
+      if (authConfig?.microsoftClientId) microsoftBtn.disabled = false;
+    }
+
+    function logout() {
+      currentUser = null;
+      sessionToken = null;
+      userName = "";
+      localStorage.removeItem("tb_session");
+      localStorage.removeItem("tb_user");
+      loginPage.classList.remove("hidden");
+      hideAuthError();
+      // Re-init auth buttons in case they need it
+      if (authConfig?.googleClientId) googleBtn.disabled = false;
+      if (authConfig?.microsoftClientId) microsoftBtn.disabled = false;
+    }
+
+    function isSessionValid() {
+      if (!sessionToken || !currentUser?.email) return false;
+      try {
+        const payloadB64 = sessionToken.split(".")[0];
+        const payload = JSON.parse(decodeURIComponent(escape(atob(payloadB64))));
+        return payload.exp > Date.now();
+      } catch {
+        return false;
+      }
+    }
+
+    // --- Init ---
+    function initUser() {
+      if (isSessionValid()) {
+        loginPage.classList.add("hidden");
+        userName = currentUser.name || currentUser.email;
+        updateUserDisplay();
+        renderMessages();
+      } else {
+        // Clear stale session
+        if (sessionToken) logout();
+        initAuth();
+      }
+    }
+
+    function formatTeamRole(role) {
+      return (role || "developer").replace(/_/g, " ");
+    }
+
+    function updateUserDisplay() {
+      userAvatar.textContent = userName.charAt(0).toUpperCase();
+      userNameDisplay.textContent = userName;
+      userRoleDisplay.textContent = currentUser?.team_role ? formatTeamRole(currentUser.team_role) : "";
+    }
+
+    // --- Message Rendering ---
+    function renderMessages() {
+      if (messages.length === 0) {
+        welcomeScreen.classList.remove("hidden");
+        return;
+      }
+      welcomeScreen.classList.add("hidden");
+
+      const existing = messagesContainer.querySelectorAll(".message");
+      existing.forEach((el) => el.remove());
+
+      messages.forEach((msg) => {
+        if (msg.role === "user") {
+          appendUserMessage(msg.content, false);
+        } else if (msg.role === "assistant") {
+          appendAssistantMessage(msg.content, false);
+        }
+      });
+      scrollToBottom();
+    }
+
+    function appendUserMessage(text, animate = true) {
+      welcomeScreen.classList.add("hidden");
+      const div = document.createElement("div");
+      div.className = "message user";
+      div.innerHTML = `
+        <div class="message-avatar">${userName.charAt(0).toUpperCase()}</div>
+        <div class="message-content">${escapeHtml(text)}</div>
+      `;
+      messagesContainer.appendChild(div);
+      if (animate) scrollToBottom();
+    }
+
+    function appendAssistantMessage(text, animate = true) {
+      const div = document.createElement("div");
+      div.className = "message assistant";
+      div.innerHTML = `
+        <div class="message-avatar">&#129504;</div>
+        <div class="message-content">${renderMarkdown(text)}</div>
+      `;
+      messagesContainer.appendChild(div);
+      if (animate) scrollToBottom();
+      return div;
+    }
+
+    function createStreamingMessage() {
+      welcomeScreen.classList.add("hidden");
+      const div = document.createElement("div");
+      div.className = "message assistant";
+      div.id = "streamingMsg";
+      div.innerHTML = `
+        <div class="message-avatar">&#129504;</div>
+        <div class="message-content">
+          <div class="typing-indicator">
+            <div class="typing-dot"></div>
+            <div class="typing-dot"></div>
+            <div class="typing-dot"></div>
+          </div>
+        </div>
+      `;
+      messagesContainer.appendChild(div);
+      scrollToBottom();
+      return div;
+    }
+
+    function updateStreamingMessage(div, text) {
+      const content = div.querySelector(".message-content");
+      content.innerHTML = renderMarkdown(text);
+      scrollToBottom();
+    }
+
+    function showBrainActivity(div, message) {
+      const content = div.querySelector(".message-content");
+      const existingText = content.getAttribute("data-text") || "";
+      content.innerHTML =
+        (existingText ? renderMarkdown(existingText) : "") +
+        `<div class="brain-activity">
+          <span class="brain-activity-icon">&#9881;</span>
+          ${escapeHtml(message)}
+        </div>`;
+      scrollToBottom();
+    }
+
+    function scrollToBottom() {
+      messagesContainer.scrollTop = messagesContainer.scrollHeight;
+    }
+
+    // --- Markdown Rendering (lightweight) ---
+    function renderMarkdown(text) {
+      if (!text) return "";
+      let html = escapeHtml(text);
+      html = html.replace(/```(\w*)\n([\s\S]*?)```/g, "<pre><code>$2</code></pre>");
+      html = html.replace(/`([^`]+)`/g, "<code>$1</code>");
+      html = html.replace(/\*\*(.+?)\*\*/g, "<strong>$1</strong>");
+      html = html.replace(/\*(.+?)\*/g, "<em>$1</em>");
+      html = html.replace(
+        /\[([^\]]+)\]\(([^)]+)\)/g,
+        '<a href="$2" target="_blank" rel="noopener">$1</a>'
+      );
+      html = html.replace(/\n/g, "<br>");
+      html = html.replace(
+        /(?:^|<br>)- (.+?)(?=<br>|$)/g,
+        "<li>$1</li>"
+      );
+      html = html.replace(/(<li>.*<\/li>)/gs, "<ul>$1</ul>");
+      return html;
+    }
+
+    function escapeHtml(text) {
+      const div = document.createElement("div");
+      div.textContent = text;
+      return div.innerHTML;
+    }
+
+    // --- Chat Logic ---
+    async function sendMessage(text) {
+      if (isStreaming || !text.trim()) return;
+      isStreaming = true;
+      sendBtn.disabled = true;
+
+      messages.push({ role: "user", content: text });
+      appendUserMessage(text);
+      saveMessages();
+
+      const streamDiv = createStreamingMessage();
+      let aiText = "";
+
+      try {
+        const headers = { "Content-Type": "application/json" };
+        if (sessionToken) {
+          headers["Authorization"] = `Bearer ${sessionToken}`;
+        }
+
+        const response = await fetch(WORKER_URL, {
+          method: "POST",
+          headers,
+          body: JSON.stringify({
+            messages: messages.map((m) => ({
+              role: m.role,
+              content: m.content,
+            })),
+            sessionId,
+          }),
+        });
+
+        if (response.status === 401) {
+          // Session expired — force re-login
+          aiText = "Your session has expired. Please sign in again.";
+          updateStreamingMessage(streamDiv, aiText);
+          setTimeout(() => logout(), 2000);
+          return;
+        }
+
+        if (!response.ok) {
+          const err = await response.json().catch(() => ({}));
+          throw new Error(err.error || "Request failed");
+        }
+
+        const reader = response.body.getReader();
+        const decoder = new TextDecoder();
+        let buffer = "";
+
+        while (true) {
+          const { done, value } = await reader.read();
+          if (done) break;
+
+          buffer += decoder.decode(value, { stream: true });
+
+          while (true) {
+            const idx = buffer.indexOf("\n");
+            if (idx === -1) break;
+            const line = buffer.slice(0, idx);
+            buffer = buffer.slice(idx + 1);
+
+            if (!line.startsWith("data: ")) continue;
+            const data = line.slice(6).trim();
+            if (!data) continue;
+
+            try {
+              const event = JSON.parse(data);
+
+              if (event.type === "text_delta") {
+                aiText += event.text;
+                streamDiv.querySelector(".message-content").setAttribute("data-text", aiText);
+                updateStreamingMessage(streamDiv, aiText);
+              } else if (event.type === "brain_activity") {
+                showBrainActivity(streamDiv, event.message);
+              } else if (event.type === "done") {
+                // Stream complete
+              } else if (event.type === "error") {
+                aiText = event.message || "Something went wrong.";
+                updateStreamingMessage(streamDiv, aiText);
+              }
+            } catch {
+              // skip unparseable
+            }
+          }
+        }
+      } catch (err) {
+        console.error("Chat error:", err);
+        aiText = "Sorry, I couldn't connect. Please check that the worker is deployed and try again.";
+        updateStreamingMessage(streamDiv, aiText);
+      }
+
+      if (aiText) {
+        messages.push({ role: "assistant", content: aiText });
+        saveMessages();
+      }
+
+      streamDiv.removeAttribute("id");
+      isStreaming = false;
+      updateSendButton();
+    }
+
+    // --- Storage ---
+    function saveMessages() {
+      localStorage.setItem("tb_messages", JSON.stringify(messages));
+    }
+
+    // --- Event Handlers ---
+    chatInput.addEventListener("input", () => {
+      chatInput.style.height = "auto";
+      chatInput.style.height = Math.min(chatInput.scrollHeight, 120) + "px";
+      updateSendButton();
+    });
+
+    chatInput.addEventListener("keydown", (e) => {
+      if (e.key === "Enter" && !e.shiftKey) {
+        e.preventDefault();
+        const text = chatInput.value.trim();
+        if (text && !isStreaming) {
+          chatInput.value = "";
+          chatInput.style.height = "auto";
+          updateSendButton();
+          sendMessage(text);
+        }
+      }
+    });
+
+    sendBtn.addEventListener("click", () => {
+      const text = chatInput.value.trim();
+      if (text && !isStreaming) {
+        chatInput.value = "";
+        chatInput.style.height = "auto";
+        updateSendButton();
+        sendMessage(text);
+      }
+    });
+
+    function updateSendButton() {
+      sendBtn.disabled = !chatInput.value.trim() || isStreaming;
+    }
+
+    newChatBtn.addEventListener("click", () => {
+      messages = [];
+      sessionId = crypto.randomUUID();
+      localStorage.setItem("tb_sessionId", sessionId);
+      saveMessages();
+      messagesContainer.querySelectorAll(".message").forEach((el) => el.remove());
+      welcomeScreen.classList.remove("hidden");
+      chatInput.focus();
+    });
+
+    // Click user badge to sign out
+    userBadge.addEventListener("click", () => {
+      if (confirm("Sign out of Team Brain?")) {
+        logout();
+      }
+    });
+
+    // Starter buttons
+    document.querySelectorAll(".starter-btn").forEach((btn) => {
+      btn.addEventListener("click", () => {
+        const msg = btn.getAttribute("data-msg");
+        if (msg) sendMessage(msg);
+      });
+    });
+
+    // --- Init ---
+    initUser();
+  </script>
+</body>
+</html>

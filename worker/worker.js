@@ -8,7 +8,7 @@
  * Secrets: npx wrangler secret put ANTHROPIC_API_KEY
  */
 
-const SYSTEM_PROMPT = `You are the Shared Brain assistant for an innovation week team. You help the team capture, organize, and retrieve shared knowledge collaboratively.
+const BASE_SYSTEM_PROMPT = `You are the Shared Brain assistant for an innovation week team. You help the team capture, organize, and retrieve shared knowledge collaboratively.
 
 IMPORTANT — Salesforce context:
 You are connected to our team's Salesforce org (orgfarm-9f4a8cd667-dev-ed.develop.my.salesforce.com). When anyone mentions "Salesforce", "CRM", "accounts", "opportunities", "leads", "contacts", or "deals" — they are referring to THIS org. You have full read/write access including the Tooling API. Don't ask if they want you to check — just do it.
@@ -41,6 +41,124 @@ Do NOT:
 - Repeat the user's question back to them
 - Be overly formal — this is a team collaboration tool
 - Create new entries when you should be updating existing ones`;
+
+function buildSystemPrompt(user) {
+  if (!user || !user.email) return BASE_SYSTEM_PROMPT;
+  return `${BASE_SYSTEM_PROMPT}
+
+CURRENT USER:
+You are speaking with ${user.name || "a team member"} (${user.email}).
+- Role: ${user.role || "member"}
+- Team role: ${user.team_role || "developer"}
+
+Always attribute actions (saves, updates) to this user's email. Address them by first name. You know who they are — no need to ask.`;
+}
+
+// --- Fetch team members from MCP ---
+
+let cachedTeam = null;
+let teamCachedAt = 0;
+const TEAM_CACHE_TTL = 60 * 1000; // 1 minute
+
+async function fetchTeam(env) {
+  const now = Date.now();
+  if (cachedTeam && now - teamCachedAt < TEAM_CACHE_TTL) {
+    return cachedTeam;
+  }
+  try {
+    const result = await callMcp("tb_list_users", {}, env);
+    const users = JSON.parse(result);
+    if (Array.isArray(users)) {
+      cachedTeam = users;
+      teamCachedAt = now;
+      return users;
+    }
+  } catch (err) {
+    console.error("Failed to fetch team:", err);
+  }
+  return cachedTeam || [];
+}
+
+// --- Auth: OAuth Token Verification ---
+
+async function verifyGoogleToken(accessToken) {
+  const res = await fetch("https://www.googleapis.com/oauth2/v3/userinfo", {
+    headers: { Authorization: `Bearer ${accessToken}` },
+  });
+  if (!res.ok) return null;
+  const data = await res.json();
+  if (!data.email_verified) return null;
+  return { email: data.email.toLowerCase(), name: data.name || data.email };
+}
+
+async function verifyMicrosoftToken(accessToken) {
+  const res = await fetch("https://graph.microsoft.com/v1.0/me", {
+    headers: { Authorization: `Bearer ${accessToken}` },
+  });
+  if (!res.ok) return null;
+  const data = await res.json();
+  const email = (data.mail || data.userPrincipalName || "").toLowerCase();
+  if (!email) return null;
+  return { email, name: data.displayName || email };
+}
+
+// --- Auth: HMAC-Signed Session Tokens ---
+
+async function createSession(user, secret) {
+  const payload = JSON.stringify({
+    email: user.email,
+    name: user.name,
+    role: user.role,
+    team_role: user.team_role,
+    exp: Date.now() + 24 * 60 * 60 * 1000, // 24 hours
+  });
+  const payloadB64 = btoa(unescape(encodeURIComponent(payload)));
+  const key = await crypto.subtle.importKey(
+    "raw",
+    new TextEncoder().encode(secret),
+    { name: "HMAC", hash: "SHA-256" },
+    false,
+    ["sign"]
+  );
+  const sigBuf = await crypto.subtle.sign(
+    "HMAC",
+    key,
+    new TextEncoder().encode(payloadB64)
+  );
+  const sigB64 = btoa(String.fromCharCode(...new Uint8Array(sigBuf)));
+  return payloadB64 + "." + sigB64;
+}
+
+async function verifySession(token, secret) {
+  try {
+    const dotIdx = token.indexOf(".");
+    if (dotIdx === -1) return null;
+    const payloadB64 = token.substring(0, dotIdx);
+    const sigB64 = token.substring(dotIdx + 1);
+
+    const key = await crypto.subtle.importKey(
+      "raw",
+      new TextEncoder().encode(secret),
+      { name: "HMAC", hash: "SHA-256" },
+      false,
+      ["verify"]
+    );
+    const sigBuf = Uint8Array.from(atob(sigB64), (c) => c.charCodeAt(0));
+    const valid = await crypto.subtle.verify(
+      "HMAC",
+      key,
+      sigBuf,
+      new TextEncoder().encode(payloadB64)
+    );
+    if (!valid) return null;
+
+    const payload = JSON.parse(decodeURIComponent(escape(atob(payloadB64))));
+    if (payload.exp < Date.now()) return null;
+    return payload;
+  } catch {
+    return null;
+  }
+}
 
 // --- MCP Tool Discovery ---
 // Fetch tools from the MCP server once, then cache in memory.
@@ -130,11 +248,11 @@ async function callMcp(toolName, args, env) {
   }
 }
 
-async function executeTool(name, input, env, userName) {
-  // Inject author for save operations
+async function executeTool(name, input, env, user) {
+  // Inject author for save operations using the authenticated user's email
   const args = { ...input };
-  if (name === "tb_save_entry" && userName) {
-    args.author = userName;
+  if (name === "tb_save_entry" && user?.email) {
+    args.author = user.email;
   }
 
   return await callMcp(name, args, env);
@@ -190,7 +308,7 @@ function getCorsHeaders(request) {
   const origin = request.headers.get("Origin") || "*";
   return {
     "Access-Control-Allow-Origin": origin,
-    "Access-Control-Allow-Methods": "POST, OPTIONS",
+    "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
     "Access-Control-Allow-Headers": "Content-Type",
     "Access-Control-Max-Age": "86400",
   };
@@ -198,7 +316,7 @@ function getCorsHeaders(request) {
 
 // --- SSE Stream with Tool Use ---
 
-async function streamWithToolUse(messages, writer, encoder, env, userName, tools, depth = 0) {
+async function streamWithToolUse(messages, writer, encoder, env, user, tools, depth = 0) {
   if (depth > 5) {
     await writer.write(
       encoder.encode(
@@ -218,7 +336,7 @@ async function streamWithToolUse(messages, writer, encoder, env, userName, tools
     body: JSON.stringify({
       model: "claude-sonnet-4-20250514",
       max_tokens: 2048,
-      system: SYSTEM_PROMPT,
+      system: buildSystemPrompt(user),
       messages,
       tools,
       stream: true,
@@ -350,7 +468,7 @@ async function streamWithToolUse(messages, writer, encoder, env, userName, tools
     const toolResults = [];
     for (const tool of toolUseBlocks) {
       console.log("Calling MCP tool:", tool.name, JSON.stringify(tool.input));
-      const result = await executeTool(tool.name, tool.input, env, userName);
+      const result = await executeTool(tool.name, tool.input, env, user);
       console.log("MCP result length:", result?.length, "preview:", result?.substring(0, 200));
       toolResults.push({
         type: "tool_result",
@@ -366,7 +484,7 @@ async function streamWithToolUse(messages, writer, encoder, env, userName, tools
     ];
 
     console.log("Recursing with tool results, depth:", depth + 1);
-    await streamWithToolUse(newMessages, writer, encoder, env, userName, tools, depth + 1);
+    await streamWithToolUse(newMessages, writer, encoder, env, user, tools, depth + 1);
   }
 }
 
@@ -375,10 +493,100 @@ async function streamWithToolUse(messages, writer, encoder, env, userName, tools
 export default {
   async fetch(request, env) {
     const corsHeaders = getCorsHeaders(request);
+    const url = new URL(request.url);
 
     if (request.method === "OPTIONS") {
       return new Response(null, { status: 204, headers: corsHeaders });
     }
+
+    // ---- Auth endpoints ----
+
+    // GET /auth/config — public OAuth client IDs for the login page
+    if (request.method === "GET" && url.pathname === "/auth/config") {
+      return new Response(
+        JSON.stringify({
+          googleClientId: env.GOOGLE_CLIENT_ID || null,
+          microsoftClientId: env.MICROSOFT_CLIENT_ID || null,
+        }),
+        { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    // POST /auth/verify — exchange OAuth access token for a session
+    if (request.method === "POST" && url.pathname === "/auth/verify") {
+      try {
+        const { provider, token } = await request.json();
+
+        // Verify token with the provider
+        let verified = null;
+        if (provider === "google") {
+          verified = await verifyGoogleToken(token);
+        } else if (provider === "microsoft") {
+          verified = await verifyMicrosoftToken(token);
+        } else {
+          return new Response(
+            JSON.stringify({ error: "Unsupported provider" }),
+            { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+          );
+        }
+
+        if (!verified) {
+          return new Response(
+            JSON.stringify({ error: "Token verification failed" }),
+            { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+          );
+        }
+
+        // Look up verified email in team roster (D1 via MCP)
+        const team = await fetchTeam(env);
+        const teamMember = team.find(
+          (u) => u.email.toLowerCase() === verified.email
+        );
+
+        if (!teamMember) {
+          return new Response(
+            JSON.stringify({
+              error: "Not a team member",
+              email: verified.email,
+              message: `${verified.email} is not registered in the team. Ask an admin to add you.`,
+            }),
+            { status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+          );
+        }
+
+        // Create signed session token
+        const session = await createSession(teamMember, env.ANTHROPIC_API_KEY);
+
+        return new Response(
+          JSON.stringify({ session, user: teamMember }),
+          { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      } catch (e) {
+        console.error("Auth verify error:", e);
+        return new Response(
+          JSON.stringify({ error: "Authentication failed" }),
+          { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+    }
+
+    // GET /team — return team members list
+    if (request.method === "GET" && url.pathname === "/team") {
+      try {
+        const team = await fetchTeam(env);
+        return new Response(JSON.stringify(team), {
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      } catch (e) {
+        console.error("Team fetch error:", e);
+        return new Response(JSON.stringify({ error: "Failed to load team" }), {
+          status: 500,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+    }
+
+    // ---- Chat endpoint (POST /) ----
 
     if (request.method !== "POST") {
       return new Response(JSON.stringify({ error: "Method not allowed" }), {
@@ -389,7 +597,26 @@ export default {
 
     try {
       const body = await request.json();
-      const { messages, sessionId, userName } = body;
+      const { messages, sessionId } = body;
+
+      // Authenticate: session token in Authorization header (preferred)
+      // Falls back to user object in body (for MCP clients / backward compat)
+      let user = null;
+      const authHeader = request.headers.get("Authorization");
+      if (authHeader?.startsWith("Bearer ")) {
+        const sessionToken = authHeader.slice(7);
+        user = await verifySession(sessionToken, env.ANTHROPIC_API_KEY);
+        if (!user) {
+          return new Response(
+            JSON.stringify({ error: "Session expired. Please sign in again." }),
+            { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+          );
+        }
+      } else if (body.user?.email) {
+        user = body.user;
+      } else if (body.userName) {
+        user = { name: body.userName, email: null };
+      }
 
       if (!messages || !Array.isArray(messages) || messages.length === 0) {
         return new Response(
@@ -413,7 +640,7 @@ export default {
 
       // Discover tools from MCP server (cached)
       const tools = await discoverTools(env);
-      console.log(`Using ${tools.length} tools`);
+      console.log(`Using ${tools.length} tools for user: ${user?.email || "anonymous"}`);
 
       // Cap conversation length
       const trimmedMessages = messages.slice(-30);
@@ -426,7 +653,7 @@ export default {
       // Process in background
       (async () => {
         try {
-          await streamWithToolUse(trimmedMessages, writer, encoder, env, userName, tools);
+          await streamWithToolUse(trimmedMessages, writer, encoder, env, user, tools);
           await writer.write(
             encoder.encode(`data: ${JSON.stringify({ type: "done" })}\n\n`)
           );
