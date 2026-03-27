@@ -720,7 +720,7 @@
           msalInstance = new msal.PublicClientApplication({
             auth: {
               clientId: authConfig.microsoftClientId,
-              authority: "https://login.microsoftonline.com/common",
+              authority: "https://login.microsoftonline.com/consumers",
               redirectUri: window.location.origin,
             },
             cache: {
