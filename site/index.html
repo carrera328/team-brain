@@ -879,7 +879,8 @@
       try {
         const payloadB64 = sessionToken.split(".")[0];
         const payload = JSON.parse(decodeURIComponent(escape(atob(payloadB64))));
-        return payload.exp > Date.now();
+        // v:2 = OAuth sessions only. Rejects all pre-OAuth sessions.
+        return payload.v === 2 && payload.exp > Date.now();
       } catch {
         return false;
       }

@@ -106,6 +106,7 @@ async function verifyMicrosoftToken(accessToken) {
 
 async function createSession(user, secret) {
   const payload = JSON.stringify({
+    v: 2, // session version — bump to invalidate all old sessions
     email: user.email,
     name: user.name,
     role: user.role,
