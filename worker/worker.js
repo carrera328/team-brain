@@ -263,10 +263,10 @@ async function executeTool(name, input, env, user) {
 
 const ipCounts = new Map();
 const sessionCounts = new Map();
-const IP_LIMIT = 30;
-const SESSION_LIMIT = 100;
+const IP_LIMIT = 200;
+const SESSION_LIMIT = 500;
 const IP_WINDOW_MS = 60 * 60 * 1000;
-const DAILY_CAP = 2000;
+const DAILY_CAP = 5000;
 let dailyCount = 0;
 let dailyResetAt = Date.now() + 24 * 60 * 60 * 1000;
 
