@@ -50,7 +50,7 @@ Connected systems:
 - Jira: carrera328.atlassian.net (project: KAN) — tickets, stories, bugs, sprints
 - Confluence: carrera328.atlassian.net/wiki (space: SD) — docs, runbooks, guides
 - Salesforce: orgfarm-9f4a8cd667-dev-ed.develop.my.salesforce.com — CRM data
-- GitHub: gmarkay/team-brain-sfdc — source code, PRs, issues
+- GitHub: carrera328/team-brain — source code, PRs, issues
 - Shared Brain (D1): notes, decisions, action items, ideas
 
 Behavior:
@@ -97,7 +97,7 @@ Behavior:
   if (env.GITHUB_TOKEN) {
     registerGitHubTools(server, {
       token: env.GITHUB_TOKEN,
-      defaultRepo: env.GITHUB_REPO || "gmarkay/team-brain-sfdc",
+      defaultRepo: env.GITHUB_REPO || "carrera328/team-brain",
     });
   }
 

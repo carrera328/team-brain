@@ -333,4 +333,62 @@ export function registerGitHubTools(server: McpServer, config: GitHubConfig) {
       }
     }
   );
+
+  // -----------------------------------------------------------------------
+  // Create or update a file
+  // -----------------------------------------------------------------------
+  server.registerTool(
+    "github_update_file",
+    {
+      title: "Create or Update File on GitHub",
+      description:
+        `Create or update a file in ${repo}. Commits directly to the specified branch. Use when someone wants to add or modify code, configs, or any file in the repo. For updates, you MUST first read the file with github_get_file to get the current content, then provide the full new content.`,
+      inputSchema: {
+        path: z.string().describe("File path, e.g. 'worker-mcp/src/tools/hello.ts'"),
+        content: z.string().describe("The full file content to write"),
+        message: z.string().describe("Commit message"),
+        branch: z.string().optional().describe("Branch to commit to (default: master)"),
+      },
+      annotations: { readOnlyHint: false, destructiveHint: false, idempotentHint: false, openWorldHint: true },
+    },
+    async ({ path, content, message, branch }) => {
+      try {
+        const ref = branch || "master";
+
+        // Check if file exists (to get its SHA for updates)
+        let sha: string | undefined;
+        try {
+          const existing = await ghFetch(config, `/repos/${repo}/contents/${path}?ref=${ref}`);
+          sha = existing.sha;
+        } catch {
+          // File doesn't exist yet — that's fine, we're creating it
+        }
+
+        // Base64 encode the content
+        const encoded = btoa(unescape(encodeURIComponent(content)));
+
+        const body: any = {
+          message,
+          content: encoded,
+          branch: ref,
+        };
+        if (sha) body.sha = sha;
+
+        const data = await ghFetch(config, `/repos/${repo}/contents/${path}`, {
+          method: "PUT",
+          body: JSON.stringify(body),
+        });
+
+        const action = sha ? "Updated" : "Created";
+        return {
+          content: [{
+            type: "text" as const,
+            text: `${action} ${path} on branch ${ref}\nCommit: ${data.commit?.sha?.substring(0, 7)} — ${message}\n${data.content?.html_url}`,
+          }],
+        };
+      } catch (e: any) {
+        return { content: [{ type: "text" as const, text: `GitHub update error: ${e.message}` }] };
+      }
+    }
+  );
 }
