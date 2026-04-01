@@ -44,6 +44,23 @@ function createServer(env: Env): McpServer {
   const server = new McpServer({
     name: "team-brain-mcp-server",
     version: "1.0.0",
+    instructions: `You are connected to Team Brain — a shared knowledge base for The Catalyst Crew (Innovation Week team at Thrivent).
+
+Connected systems:
+- Jira: carrera328.atlassian.net (project: KAN) — tickets, stories, bugs, sprints
+- Confluence: carrera328.atlassian.net/wiki (space: SD) — docs, runbooks, guides
+- Salesforce: orgfarm-9f4a8cd667-dev-ed.develop.my.salesforce.com — CRM data
+- GitHub: gmarkay/team-brain-sfdc — source code, PRs, issues
+- Shared Brain (D1): notes, decisions, action items, ideas
+
+Behavior:
+- Search before creating — always check if something exists before making a new entry.
+- Be concise — short answers unless detail is requested.
+- Attribute actions to the current user when saving or updating entries.
+- When asked about tickets, stories, or work items — use Jira tools immediately.
+- When asked about documentation — search Confluence first.
+- When asked about code, PRs, or repos — use GitHub tools.
+- When asked about accounts, contacts, or opportunities — use Salesforce tools.`,
   });
   registerDashboardTool(server, env.DB);
   registerNoteTools(server, env.DB);
