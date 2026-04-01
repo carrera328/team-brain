@@ -327,7 +327,7 @@ async function streamWithToolUse(messages, writer, encoder, env, user, tools, de
     return;
   }
 
-  const response = await fetch("https://api.anthropic.com/v1/messages", {
+  const makeRequest = () => fetch("https://api.anthropic.com/v1/messages", {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
@@ -343,6 +343,19 @@ async function streamWithToolUse(messages, writer, encoder, env, user, tools, de
       stream: true,
     }),
   });
+
+  let response = await makeRequest();
+
+  // Retry up to 2 times on 429 with exponential backoff
+  if (response.status === 429) {
+    for (let attempt = 1; attempt <= 2; attempt++) {
+      const delay = attempt * 2000; // 2s, then 4s
+      console.log(`429 received, retrying in ${delay}ms (attempt ${attempt}/2)`);
+      await new Promise(r => setTimeout(r, delay));
+      response = await makeRequest();
+      if (response.status !== 429) break;
+    }
+  }
 
   if (!response.ok) {
     const errText = await response.text();

@@ -193,8 +193,8 @@ We're building a shared MCP (Model Context Protocol) server that connects multip
 ## Connected Systems
 | System | What it does | URL |
 |--------|-------------|-----|
-| **Jira** | Sprint tracking, bugs, stories | https://discoveryacdc.atlassian.net/jira/software/projects/SCRUM/boards/1 |
-| **Confluence** | Team docs, runbooks | https://discoveryacdc.atlassian.net/wiki/spaces/SD |
+| **Jira** | Sprint tracking, bugs, stories | https://carrera328.atlassian.net/jira/software/projects/SCRUM/boards/1 |
+| **Confluence** | Team docs, runbooks | https://carrera328.atlassian.net/wiki/spaces/SD |
 | **Salesforce** | CRM / dev org | orgfarm-9f4a8cd667-dev-ed.develop.my.salesforce.com |
 | **GitHub** | Source code | https://github.com/gmarkay/team-brain-sfdc |
 | **Team Brain Chat** | This chat interface | https://team-brain-chat.carrera-328.workers.dev |
@@ -238,7 +238,7 @@ cd worker-mcp && npx wrangler dev  # MCP server on localhost:8788
 \`\`\`
 
 ### 5. Jira Workflow
-- Pick up stories from the **SCRUM** board: https://discoveryacdc.atlassian.net/jira/software/projects/SCRUM/boards/1
+- Pick up stories from the **SCRUM** board: https://carrera328.atlassian.net/jira/software/projects/SCRUM/boards/1
 - Move tickets: To Do → In Progress → Done
 - Name branches after tickets: \`feature/SCRUM-5-add-search\`
 
@@ -252,7 +252,7 @@ cd worker-mcp && npx wrangler dev  # MCP server on localhost:8788
 ## Your QA Onboarding
 
 ### 1. Jira — Your Home Base
-- **Board**: https://discoveryacdc.atlassian.net/jira/software/projects/SCRUM/boards/1
+- **Board**: https://carrera328.atlassian.net/jira/software/projects/SCRUM/boards/1
 - Filter by type **Bug** to see current issues
 - Create bugs with clear repro steps, expected vs actual behavior
 - You can create bugs right here in the chat: "Create a bug in SCRUM: [description]"
@@ -293,13 +293,13 @@ Either:
 ## Your Product Owner Onboarding
 
 ### 1. Jira — Backlog Management
-- **Board**: https://discoveryacdc.atlassian.net/jira/software/projects/SCRUM/boards/1
+- **Board**: https://carrera328.atlassian.net/jira/software/projects/SCRUM/boards/1
 - Review and prioritize the backlog
 - Create and refine user stories
 - You can create stories right here: "Create a story in SCRUM: As a user, I want to..."
 
 ### 2. Confluence — Product Documentation
-- **Space**: https://discoveryacdc.atlassian.net/wiki/spaces/SD
+- **Space**: https://carrera328.atlassian.net/wiki/spaces/SD
 - Write requirements, acceptance criteria, and feature specs
 - Document decisions and their rationale in the brain
 
@@ -325,12 +325,12 @@ Use the brain to log decisions: "Save this decision: We chose Cloudflare Workers
 ## Your BA Onboarding
 
 ### 1. Requirements & Documentation
-- **Confluence**: https://discoveryacdc.atlassian.net/wiki/spaces/SD
+- **Confluence**: https://carrera328.atlassian.net/wiki/spaces/SD
 - Document requirements, acceptance criteria, and process flows
 - Create pages through the chat: "Create a Confluence page called Requirements: [feature]"
 
 ### 2. Jira — Story Management
-- **Board**: https://discoveryacdc.atlassian.net/jira/software/projects/SCRUM/boards/1
+- **Board**: https://carrera328.atlassian.net/jira/software/projects/SCRUM/boards/1
 - Write user stories with clear acceptance criteria
 - Track requirements through the sprint
 
@@ -349,7 +349,7 @@ Use the brain to log decisions: "Save this decision: We chose Cloudflare Workers
 ## Your Scrum Master Onboarding
 
 ### 1. Jira — Sprint Management
-- **Board**: https://discoveryacdc.atlassian.net/jira/software/projects/SCRUM/boards/1
+- **Board**: https://carrera328.atlassian.net/jira/software/projects/SCRUM/boards/1
 - Manage sprint planning, standups, and retros
 - Track velocity and blockers
 
@@ -372,12 +372,12 @@ Use the brain to log decisions: "Save this decision: We chose Cloudflare Workers
 - Suggest improvements to the chat experience
 
 ### 2. Confluence — Design Docs
-- **Space**: https://discoveryacdc.atlassian.net/wiki/spaces/SD
+- **Space**: https://carrera328.atlassian.net/wiki/spaces/SD
 - Document design decisions, wireframes, and style guides
 - Create pages: "Create a Confluence page called Design System: Team Brain"
 
 ### 3. Jira
-- **Board**: https://discoveryacdc.atlassian.net/jira/software/projects/SCRUM/boards/1
+- **Board**: https://carrera328.atlassian.net/jira/software/projects/SCRUM/boards/1
 - Pick up design-related tickets
 - Create issues for UX improvements
 `,

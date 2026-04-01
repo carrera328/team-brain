@@ -51,8 +51,8 @@ function createServer(env: Env): McpServer {
   // Pass Confluence config to onboarding so it can fetch pages directly
   const confluenceConfig = env.CONFLUENCE_API_TOKEN
     ? {
-        baseUrl: env.JIRA_BASE_URL || "https://discoveryacdc.atlassian.net",
-        email: env.JIRA_EMAIL || "venkivenki8697@gmail.com",
+        baseUrl: env.JIRA_BASE_URL || "https://carrera328.atlassian.net",
+        email: env.JIRA_EMAIL || "carrera.328@gmail.com",
         apiToken: env.CONFLUENCE_API_TOKEN,
       }
     : undefined;
@@ -61,8 +61,8 @@ function createServer(env: Env): McpServer {
   // Jira integration
   if (env.JIRA_API_TOKEN) {
     registerJiraTools(server, {
-      baseUrl: env.JIRA_BASE_URL || "https://discoveryacdc.atlassian.net",
-      email: env.JIRA_EMAIL || "venkivenki8697@gmail.com",
+      baseUrl: env.JIRA_BASE_URL || "https://carrera328.atlassian.net",
+      email: env.JIRA_EMAIL || "carrera.328@gmail.com",
       apiToken: env.JIRA_API_TOKEN,
     });
   }
@@ -70,8 +70,8 @@ function createServer(env: Env): McpServer {
   // Confluence integration
   if (env.CONFLUENCE_API_TOKEN) {
     registerConfluenceTools(server, {
-      baseUrl: env.JIRA_BASE_URL || "https://discoveryacdc.atlassian.net",
-      email: env.JIRA_EMAIL || "venkivenki8697@gmail.com",
+      baseUrl: env.JIRA_BASE_URL || "https://carrera328.atlassian.net",
+      email: env.JIRA_EMAIL || "carrera.328@gmail.com",
       apiToken: env.CONFLUENCE_API_TOKEN,
     });
   }
