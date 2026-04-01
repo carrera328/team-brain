@@ -340,11 +340,11 @@ export function registerGitHubTools(server: McpServer, config: GitHubConfig) {
   server.registerTool(
     "github_update_file",
     {
-      title: "Create or Update File on GitHub",
+      title: "Create New Tool File on GitHub",
       description:
-        `Create or update a file in ${repo}. Commits directly to the specified branch. Use when someone wants to add or modify code, configs, or any file in the repo. For updates, you MUST first read the file with github_get_file to get the current content, then provide the full new content.`,
+        `Create a new tool file in worker-mcp/src/tools/ in ${repo}. Only creates NEW files — cannot overwrite existing files. The file must use the McpServer.registerTool pattern (import McpServer from "@modelcontextprotocol/sdk/server/mcp.js" and export a register function). After creating the tool file, you must ALSO update worker-mcp/src/index.ts to import and register it — but ONLY by adding lines, never rewriting the file.`,
       inputSchema: {
-        path: z.string().describe("File path, e.g. 'worker-mcp/src/tools/hello.ts'"),
+        path: z.string().describe("File path — must be under worker-mcp/src/tools/, e.g. 'worker-mcp/src/tools/hello.ts'"),
         content: z.string().describe("The full file content to write"),
         message: z.string().describe("Commit message"),
         branch: z.string().optional().describe("Branch to commit to (default: master)"),
@@ -353,41 +353,51 @@ export function registerGitHubTools(server: McpServer, config: GitHubConfig) {
     },
     async ({ path, content, message, branch }) => {
       try {
+        // Guard: only allow writes under worker-mcp/src/tools/
+        if (!path.startsWith("worker-mcp/src/tools/")) {
+          return {
+            content: [{
+              type: "text" as const,
+              text: `Blocked: can only create files under worker-mcp/src/tools/. Got: ${path}`,
+            }],
+          };
+        }
+
         const ref = branch || "master";
 
-        // Check if file exists (to get its SHA for updates)
-        let sha: string | undefined;
+        // Guard: block overwrites of existing files
         try {
-          const existing = await ghFetch(config, `/repos/${repo}/contents/${path}?ref=${ref}`);
-          sha = existing.sha;
+          await ghFetch(config, `/repos/${repo}/contents/${path}?ref=${ref}`);
+          return {
+            content: [{
+              type: "text" as const,
+              text: `Blocked: ${path} already exists. This tool can only create new files, not overwrite existing ones.`,
+            }],
+          };
         } catch {
-          // File doesn't exist yet — that's fine, we're creating it
+          // File doesn't exist — good, proceed with creation
         }
 
         // Base64 encode the content
         const encoded = btoa(unescape(encodeURIComponent(content)));
 
-        const body: any = {
-          message,
-          content: encoded,
-          branch: ref,
-        };
-        if (sha) body.sha = sha;
-
         const data = await ghFetch(config, `/repos/${repo}/contents/${path}`, {
           method: "PUT",
-          body: JSON.stringify(body),
+          body: JSON.stringify({
+            message,
+            content: encoded,
+            branch: ref,
+          }),
         });
 
-        const action = sha ? "Updated" : "Created";
         return {
           content: [{
             type: "text" as const,
-            text: `${action} ${path} on branch ${ref}\nCommit: ${data.commit?.sha?.substring(0, 7)} — ${message}\n${data.content?.html_url}`,
+            text: `Created ${path} on branch ${ref}\nCommit: ${data.commit?.sha?.substring(0, 7)} — ${message}\n${data.content?.html_url}\n\nNote: You still need to register this tool in worker-mcp/src/index.ts for it to be available.`,
           }],
         };
       } catch (e: any) {
-        return { content: [{ type: "text" as const, text: `GitHub update error: ${e.message}` }] };
+        return { content: [{ type: "text" as const, text: `GitHub create error: ${e.message}` }] };
       }
     }
   );
