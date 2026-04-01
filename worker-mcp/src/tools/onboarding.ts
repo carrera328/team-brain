@@ -193,7 +193,7 @@ We're building a shared MCP (Model Context Protocol) server that connects multip
 ## Connected Systems
 | System | What it does | URL |
 |--------|-------------|-----|
-| **Jira** | Sprint tracking, bugs, stories | https://carrera328.atlassian.net/jira/software/projects/SCRUM/boards/1 |
+| **Jira** | Sprint tracking, bugs, stories | https://carrera328.atlassian.net/jira/software/projects/KAN/boards/1 |
 | **Confluence** | Team docs, runbooks | https://carrera328.atlassian.net/wiki/spaces/SD |
 | **Salesforce** | CRM / dev org | orgfarm-9f4a8cd667-dev-ed.develop.my.salesforce.com |
 | **GitHub** | Source code | https://github.com/gmarkay/team-brain-sfdc |
@@ -216,10 +216,10 @@ git clone https://github.com/carrera328/team-brain.git
 cd team-brain
 
 # Create a feature branch
-git checkout -b feature/SCRUM-XX-your-feature
+git checkout -b feature/KAN-XX-your-feature
 
 # Make changes, then push
-git push origin feature/SCRUM-XX-your-feature
+git push origin feature/KAN-XX-your-feature
 
 # Open a PR against master
 # When merged → GitHub Actions auto-deploys both workers to Cloudflare
@@ -238,9 +238,9 @@ cd worker-mcp && npx wrangler dev  # MCP server on localhost:8788
 \`\`\`
 
 ### 5. Jira Workflow
-- Pick up stories from the **SCRUM** board: https://carrera328.atlassian.net/jira/software/projects/SCRUM/boards/1
+- Pick up stories from the **KAN** board: https://carrera328.atlassian.net/jira/software/projects/KAN/boards/1
 - Move tickets: To Do → In Progress → Done
-- Name branches after tickets: \`feature/SCRUM-5-add-search\`
+- Name branches after tickets: \`feature/KAN-5-add-search\`
 
 ### 6. Salesforce Dev
 - The org is a Developer Edition with full API access
@@ -252,10 +252,10 @@ cd worker-mcp && npx wrangler dev  # MCP server on localhost:8788
 ## Your QA Onboarding
 
 ### 1. Jira — Your Home Base
-- **Board**: https://carrera328.atlassian.net/jira/software/projects/SCRUM/boards/1
+- **Board**: https://carrera328.atlassian.net/jira/software/projects/KAN/boards/1
 - Filter by type **Bug** to see current issues
 - Create bugs with clear repro steps, expected vs actual behavior
-- You can create bugs right here in the chat: "Create a bug in SCRUM: [description]"
+- You can create bugs right here in the chat: "Create a bug in KAN: [description]"
 
 ### 2. What to Test
 The main product is the **Team Brain chat interface**: https://team-brain-chat.carrera-328.workers.dev
@@ -293,10 +293,10 @@ Either:
 ## Your Product Owner Onboarding
 
 ### 1. Jira — Backlog Management
-- **Board**: https://carrera328.atlassian.net/jira/software/projects/SCRUM/boards/1
+- **Board**: https://carrera328.atlassian.net/jira/software/projects/KAN/boards/1
 - Review and prioritize the backlog
 - Create and refine user stories
-- You can create stories right here: "Create a story in SCRUM: As a user, I want to..."
+- You can create stories right here: "Create a story in KAN: As a user, I want to..."
 
 ### 2. Confluence — Product Documentation
 - **Space**: https://carrera328.atlassian.net/wiki/spaces/SD
@@ -330,7 +330,7 @@ Use the brain to log decisions: "Save this decision: We chose Cloudflare Workers
 - Create pages through the chat: "Create a Confluence page called Requirements: [feature]"
 
 ### 2. Jira — Story Management
-- **Board**: https://carrera328.atlassian.net/jira/software/projects/SCRUM/boards/1
+- **Board**: https://carrera328.atlassian.net/jira/software/projects/KAN/boards/1
 - Write user stories with clear acceptance criteria
 - Track requirements through the sprint
 
@@ -349,7 +349,7 @@ Use the brain to log decisions: "Save this decision: We chose Cloudflare Workers
 ## Your Scrum Master Onboarding
 
 ### 1. Jira — Sprint Management
-- **Board**: https://carrera328.atlassian.net/jira/software/projects/SCRUM/boards/1
+- **Board**: https://carrera328.atlassian.net/jira/software/projects/KAN/boards/1
 - Manage sprint planning, standups, and retros
 - Track velocity and blockers
 
@@ -377,7 +377,7 @@ Use the brain to log decisions: "Save this decision: We chose Cloudflare Workers
 - Create pages: "Create a Confluence page called Design System: Team Brain"
 
 ### 3. Jira
-- **Board**: https://carrera328.atlassian.net/jira/software/projects/SCRUM/boards/1
+- **Board**: https://carrera328.atlassian.net/jira/software/projects/KAN/boards/1
 - Pick up design-related tickets
 - Create issues for UX improvements
 `,

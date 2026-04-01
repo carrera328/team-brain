@@ -105,9 +105,9 @@ export function registerJiraTools(server: McpServer, config: JiraConfig) {
     {
       title: "Get Jira Issue Details",
       description:
-        "Get full details for a specific Jira issue by key (e.g. SCRUM-42). Returns description, comments, status, assignee, etc.",
+        "Get full details for a specific Jira issue by key (e.g. KAN-42). Returns description, comments, status, assignee, etc.",
       inputSchema: {
-        issueKey: z.string().describe('The Jira issue key, e.g. "SCRUM-42"'),
+        issueKey: z.string().describe('The Jira issue key, e.g. "KAN-42"'),
       },
       annotations: { readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: true },
     },
@@ -255,7 +255,7 @@ export function registerJiraTools(server: McpServer, config: JiraConfig) {
       title: "Add Comment to Jira Issue",
       description: "Add a comment to a Jira issue. Use to log updates, decisions, or context.",
       inputSchema: {
-        issueKey: z.string().describe('The Jira issue key, e.g. "SCRUM-42"'),
+        issueKey: z.string().describe('The Jira issue key, e.g. "KAN-42"'),
         comment: z.string().describe("The comment text to add"),
       },
       annotations: { readOnlyHint: false, destructiveHint: false, idempotentHint: false, openWorldHint: true },
@@ -297,7 +297,7 @@ export function registerJiraTools(server: McpServer, config: JiraConfig) {
       description:
         "Create a new Jira issue (Story, Task, Bug, etc). Use when someone wants to create a ticket, log a bug, or add a story to the backlog.",
       inputSchema: {
-        projectKey: z.string().describe("Project key, e.g. 'SCRUM'"),
+        projectKey: z.string().describe("Project key, e.g. 'KAN'"),
         summary: z.string().describe("Issue title/summary"),
         issueType: z.enum(["Story", "Task", "Bug", "Epic", "Subtask"]).optional().describe("Issue type (default: Task)"),
         description: z.string().optional().describe("Issue description"),
@@ -367,7 +367,7 @@ export function registerJiraTools(server: McpServer, config: JiraConfig) {
       description:
         "Move a Jira issue to a different status (e.g. To Do → In Progress → Done). Use when someone says they started, finished, or want to change the status of a ticket.",
       inputSchema: {
-        issueKey: z.string().describe("Issue key, e.g. 'SCRUM-5'"),
+        issueKey: z.string().describe("Issue key, e.g. 'KAN-5'"),
         status: z.string().describe("Target status name, e.g. 'In Progress', 'Done', 'To Do'"),
       },
       annotations: { readOnlyHint: false, destructiveHint: false, idempotentHint: true, openWorldHint: true },
@@ -416,7 +416,7 @@ export function registerJiraTools(server: McpServer, config: JiraConfig) {
       description:
         "Assign an existing Jira issue to a user. Accepts an accountId directly, a name/email to search for, or 'me' to assign to the current user.",
       inputSchema: {
-        issueKey: z.string().describe("Issue key, e.g. 'SCRUM-42'"),
+        issueKey: z.string().describe("Issue key, e.g. 'KAN-42'"),
         assignee: z.string().describe("Either an Atlassian accountId, a name/email to search for, or 'me' to assign to yourself."),
       },
       annotations: { readOnlyHint: false, destructiveHint: false, idempotentHint: true, openWorldHint: true },
@@ -484,7 +484,7 @@ export function registerJiraTools(server: McpServer, config: JiraConfig) {
     description:
       "Add an existing Jira issue to a sprint. Can target the active sprint, or a specific sprint by name or number (e.g. 'Sprint 5').",
     inputSchema: {
-      issueKey: z.string().describe("Issue key, e.g. 'SCRUM-42'"),
+      issueKey: z.string().describe("Issue key, e.g. 'KAN-42'"),
       boardId: z.number().describe("Jira board ID"),
       sprint: z.union([
         z.literal("active"),

@@ -11,8 +11,8 @@ Team Brain is a shared MCP (Model Context Protocol) server + chat interface buil
 
 ## Connected Services
 - **D1 Database** — Shared brain (notes, ideas, decisions, action items)
-- **Jira** — discoveryacdc.atlassian.net (project: SCRUM)
-- **Confluence** — discoveryacdc.atlassian.net/wiki (space: SD)
+- **Jira** — carrera328.atlassian.net (project: KAN)
+- **Confluence** — carrera328.atlassian.net/wiki (space: SD)
 - **Salesforce** — orgfarm-9f4a8cd667-dev-ed.develop.my.salesforce.com
 - **GitHub** — gmarkay/team-brain-sfdc
 
