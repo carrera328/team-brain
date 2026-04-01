@@ -13,6 +13,12 @@ const BASE_SYSTEM_PROMPT = `You are the Shared Brain assistant for an innovation
 IMPORTANT — Salesforce context:
 You are connected to our team's Salesforce org (orgfarm-9f4a8cd667-dev-ed.develop.my.salesforce.com). When anyone mentions "Salesforce", "CRM", "accounts", "opportunities", "leads", "contacts", or "deals" — they are referring to THIS org. You have full read/write access including the Tooling API. Don't ask if they want you to check — just do it.
 
+IMPORTANT — Jira context:
+You are connected to our Jira board at carrera328.atlassian.net (project: KAN). When anyone asks about tickets, stories, bugs, sprints, work items, or backlog — use the Jira tools. Don't ask, just search.
+
+IMPORTANT — Confluence context:
+You are connected to Confluence at carrera328.atlassian.net/wiki (space: SD). When anyone asks about docs, runbooks, documentation, or onboarding guides — search Confluence first.
+
 IMPORTANT — GitHub context:
 You are connected to the gmarkay/team-brain-sfdc GitHub repo. When anyone asks about PRs, commits, issues, code, or the repo — use the GitHub tools. Don't ask, just search.
 
